@@ -1,0 +1,21 @@
+---
+title: "Car ownership in DC"
+author: "pete rodrigue"
+date: "2026-02-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+co <- readr::read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vSOGUHkvJwIW_vFfjCPjvBQBW2K9JAfl7An78DTK5CLW-LIrFRBxBMgexXweqZbgLpOUMZXxwbwyF30/pub?gid=1380852961&single=true&output=csv")
+
+# https://opendata.dc.gov/datasets/DCGIS::single-member-district-from-2023/about
+smd <- tktk
+
+# https://opendata.dc.gov/datasets/DCGIS::advisory-neighborhood-commissions-from-2023/about
+anc <- tktk
+
+# https://opendata.dc.gov/datasets/DCGIS::address-points/about
+pts <- tktk
+```
+
+
