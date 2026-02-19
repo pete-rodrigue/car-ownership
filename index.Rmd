@@ -66,13 +66,13 @@ Keep in mind that this does not include any vehicles that residents are using th
 Here is the breakdown of how many households owned one, versus, two, versus 3 vehicles, etc:
 
 ```{r}
-table(co$`Count of Vehicles`)
+# table(co$`Count of Vehicles`)
 ```
 
 And here is that same breakdown in percentage terms:
 
 ```{r}
-round(prop.table(table(co$`Count of Vehicles`))*100, 5)
+# round(prop.table(table(co$`Count of Vehicles`))*100, 5)
 ```
 
 
@@ -168,7 +168,7 @@ p1 / p2 +
 
 ```
 
-According to this FOIA'd data, here is the number of cars registered in each SMD.
+According to this FOIA'd data, here is the number of cars registered in each ANC Single Member District (SMD):
 
 ```{r}
 smd_co <- 
