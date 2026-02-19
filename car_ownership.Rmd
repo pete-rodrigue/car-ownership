@@ -5,113 +5,299 @@ date: "2026-02-18"
 output: html_document
 ---
 
-```{r setup, include=FALSE, echo=F, warning=F, message=F}
+```{r setup, include=F, echo=F, warning=F, message=F}
+knitr::opts_chunk$set(echo=F, warning=F, message=F)
 library(readr)
 library(sf)
 library(dplyr)
 library(leaflet)
+library(rstudioapi)
+library(ggplot2)
+# devtools::install_github("liamgilbey/ggwaffle")
+library(ggwaffle)
+library(patchwork)
 
+# set working directory to be the folder that this Rmd file is saved in, 
+# for convienience 
+current_path = rstudioapi::getActiveDocumentContext()$path 
+setwd(dirname(current_path))
+# print(getwd())
 
+# load car ownership data
 co <- readr::read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vSOGUHkvJwIW_vFfjCPjvBQBW2K9JAfl7An78DTK5CLW-LIrFRBxBMgexXweqZbgLpOUMZXxwbwyF30/pub?gid=1380852961&single=true&output=csv") %>%
   sf::st_as_sf(., coords = c("Geocodio Longitude", "Geocodio Latitude"), crs = 4326)
 
 # https://opendata.dc.gov/datasets/DCGIS::single-member-district-from-2023/about
-smd <- sf::st_read("~/GitHub/car-ownership/data/Single_Member_District_from_2023/Single_Member_District_from_2023.shp") %>%
+smd <- sf::st_read("data/Single_Member_District_from_2023/Single_Member_District_from_2023.shp") %>%
   sf::st_transform(crs = 4326)
 
 # https://opendata.dc.gov/datasets/DCGIS::advisory-neighborhood-commissions-from-2023/about
-anc <- sf::st_read("~/GitHub/car-ownership/data/Advisory_Neighborhood_Commissions_from_2023/Advisory_Neighborhood_Commissions_from_2023.shp") %>%
+anc <- sf::st_read("data/Advisory_Neighborhood_Commissions_from_2023/Advisory_Neighborhood_Commissions_from_2023.shp") %>%
   sf::st_transform(crs = 4326)
 
 # https://opendata.dc.gov/datasets/DCGIS::address-points/about
-pts <- readr::read_csv("~/GitHub/car-ownership/data/Address_Points.csv") %>%
+pts <- readr::read_csv("data/Address_Points.csv") %>%
   sf::st_as_sf(., coords = c("LONGITUDE", "LATITUDE"), crs = 4326)
 
+# https://opendata.dc.gov/datasets/a53c0f02804a484b87027ce3ef3ff38b_41/about
+trt_d <- sf::st_read("data/ACS_5-Year_Economic_Characteristics_DC_Census_Tract/ACS_5-Year_Economic_Characteristics_DC_Census_Tract.shp") %>%
+  select(TRACTCE, DP03_0062E) %>%
+  rename(
+         med_hh_inc = DP03_0062E,
+         TRACT = TRACTCE
+         ) %>%
+  sf::st_transform(crs = 4326)
+
 # https://opendata.dc.gov/datasets/DCGIS::census-tracts-in-2020/about
-trt <- sf::st_read("~/GitHub/car-ownership/data/Census_Tracts_in_2020/Census_Tracts_in_2020.shp")
+trt <- sf::st_read("data/Census_Tracts_in_2020/Census_Tracts_in_2020.shp") %>%
+  select(TRACT, H0010001, P0030001) %>%
+  rename(
+         num_hh = H0010001, 
+         pop_over_18 = P0030001
+         ) %>%
+  sf::st_transform(crs = 4326)
 ```
 
+
+In January 2016, there were `r format(sum(co[["Count of Vehicles"]]), big.mark = ",")` vehicles registered with the DC DMV at `r format(length(unique(co$Address)), big.mark=",")` residential addresses, according to data provided in a recent FOIA request.
+
+Keep in mind that this does not include any vehicles that residents are using that they have not registered with the DC DMV.
+
+Here is the breakdown of how many households owned one, versus, two, versus 3 vehicles, etc:
+
+```{r}
+table(co$`Count of Vehicles`)
+```
+
+And here is that same breakdown in percentage terms:
+
+```{r}
+round(prop.table(table(co$`Count of Vehicles`))*100, 5)
+```
+
+
+```{r}
+pcts <- prop.table(table(co$`Count of Vehicles`))*100
+
+car_stats <- as.numeric(names(pcts)) * pcts
+
+w_pcts <- car_stats / sum(car_stats) * 100
+w_pcts_trunc <- round(c(w_pcts[1:3], "4" = sum(w_pcts[4:length(w_pcts)])))
+pcts_trunc <- round(c(pcts[1:3], "4" = sum(pcts[4:length(pcts)])))
+
+
+
+
+
+df1 <-
+  data.frame(
+    c(rep(1, pcts_trunc["1"]),
+      rep(2, pcts_trunc["2"]),
+      rep(3, pcts_trunc["3"]),
+      rep(4, pcts_trunc["4"])
+      )
+  )
+names(df1) <- "cc"
+df1$ones <- 1
+df1$cc <- as.factor(df1$cc)
+# due to rounding we have one to many boxes (101), so remove the last box, since
+# the 4+ group was farthest from being rounded up (even though it was)
+df1 <- df1[1:100,]  
+
+
+df2 <-
+  data.frame(
+    c(rep(1, w_pcts_trunc["1"]),
+      rep(2, w_pcts_trunc["2"]),
+      rep(3, w_pcts_trunc["3"]),
+      rep(4, w_pcts_trunc["4"])
+      )
+  )
+names(df2) <- "cc"
+df2$ones <- 1
+df2$cc <- as.factor(df2$cc)
+
+
+waffle_data <- waffle_iron(df1, aes_d(group = cc), rows = 4)
+
+p1 <-
+  ggplot(waffle_data, aes(x, y, fill = group)) + 
+  geom_waffle() + 
+  coord_equal() + 
+  scale_fill_manual(
+                    name = "# cars reg. at address",
+                    values = c("#ABEDC4", "#35D472", "#19763D", "#072211"),
+                    labels = c("1", "2", "3", "4+")
+                      ) +
+  theme_waffle() +
+  theme(legend.position = "none") +
+  xlab("") +
+  ylab("") +
+  ggtitle("For example, only about 1.6% of households own 4 or more cars...") +
+  theme(plot.title = element_text(size = 12))
+
+
+waffle_data <- waffle_iron(df2, aes_d(group = cc), rows = 4)
+
+p2 <-
+  ggplot(waffle_data, aes(x, y, fill = group)) + 
+  geom_waffle() + 
+  coord_equal() + 
+  scale_fill_manual(
+                    name = "# cars registered at address",
+                    values = c("#ABEDC4", "#35D472", "#19763D", "#072211"),
+                    labels = c("1", "2", "3", "4+")
+                      ) +
+  theme_waffle() +
+  theme(legend.position = "bottom") +
+  xlab("") +
+  ylab("") +
+  ggtitle("But those households account for almost 6% of cars registered in DC") +
+  theme(plot.title = element_text(size = 12))
+
+
+p1 / p2 + 
+  plot_annotation('Households with multiple cars are disproportionate share of total car ownership in DC', 
+                  caption = paste0(
+                    "There are 100 squares in each plot.\n", 
+                    "In the first plot, each square represents roughly 900 addresses/households. (There are 89,871 total addresses in the data set).\n",
+                    "In the second plot, each square represents roughly 1,200 vehicles. (There are 118,907 total vehicles in the data set)."),
+                          theme=theme(plot.title=element_text(hjust=0.5),
+                                      plot.caption = element_text(hjust = 0))
+                  )
+
+```
+
+According to this FOIA'd data, here is the number of cars registered in each SMD.
 
 ```{r}
 smd_co <- 
   sf::st_join(x = smd, y = co) %>%
   sf::st_drop_geometry() %>%
   group_by(SMD_ID) %>%
-  summarize(car_households = n_distinct(Address))
+  summarize(nv = sum(`Count of Vehicles`, na.rm=T))
 
-smd_pts <- 
-  sf::st_join(x = smd, y = pts) %>%
-  sf::st_drop_geometry() %>%
-  # filter(RESIDENTIAL_TYPE == "RESIDENTIAL") %>%
-  group_by(SMD_ID) %>%
-  summarize(total_households = sum(HOUSING_UNIT_COUNT, na.rm=T))
+smd_co <- dplyr::left_join(smd %>% select(SMD_ID), smd_co, by="SMD_ID")
 
-
-smd_any_car <- 
-  dplyr::full_join(smd_co, smd_pts, by = "SMD_ID")
-
-smd_any_car <-
-  dplyr::left_join(x = smd %>% select(SMD_ID), 
-                   y = smd_any_car,
-                   by = "SMD_ID") %>%
-  mutate(`% of households with cars` = round(car_households / total_households * 100, 0)) %>%
-  filter(!is.infinite(`% of households with cars`)) %>%
-  mutate(`% of households with cars` = ifelse(`% of households with cars` > 100, 100, `% of households with cars`))
 
 pal <- colorNumeric(
-  palette = "plasma", # Using a viridis palette
-  domain = smd_any_car$`% of households with cars`
+  palette = "YlOrRd", 
+  domain = smd_co$nv
 )
 
 leaflet() %>% 
   addProviderTiles(providers$CartoDB.Positron) %>%
   addPolygons(
-  data = smd_any_car, 
-  fillColor = ~pal(`% of households with cars`),      # Fill color of the polygons
+  data = smd_co, 
+  fillColor = ~pal(nv),      # Fill color of the polygons
   color = "grey",          # Border color
-  stroke = F,
-  weight = 0,              # Border thickness
+  weight = 1,              # Border thickness
   fillOpacity = 0.6,       # Fill opacity
-  label = ~`% of households with cars`            # Add interactive popups (e.g., county name)
+  label = ~paste0("SMD ", SMD_ID, ": ", `nv`)            # Add interactive popups (e.g., county name)
   )
 
-
-mean_car_count <-
-  co %>%
-  sf::st_drop_geometry() %>%
-  group_by(SMD) %>%
-  summarise(
-    car_stat = round(mean(`Count of Vehicles`, na.rm=T), 2)
-    # car_stat = quantile(`Count of Vehicles`, probs = 0.8, na.rm = TRUE)
-    )
-
-pal <- colorNumeric(
-  palette = "plasma", # Using a viridis palette
-  domain = mean_car_count$car_stat
-)
-
-mean_car_count <-
-  dplyr::left_join(smd, 
-                   mean_car_count %>% mutate(SMD_ID = stringr::str_replace(string = SMD, pattern = "SMD ", replacement = '')), 
-                   by="SMD_ID")
-
-leaflet() %>% 
-  addProviderTiles(providers$CartoDB.Positron) %>%
-  addPolygons(
-  data = mean_car_count, 
-  fillColor = ~pal(car_stat),      # Fill color of the polygons
-  color = "grey",          # Border color
-  stroke = F,
-  weight = 0,              # Border thickness
-  fillOpacity = 0.6,       # Fill opacity
-  label = ~car_stat            # Add interactive popups (e.g., county name)
-  )
 ```
+
+
+
+Here is the number of vehicles registered as a percentage of the number of households in the tract in 2020.
+
+```{r}
+trt_co <- 
+  sf::st_join(x = trt %>% sf::st_transform(4326), y = co) %>%
+  sf::st_drop_geometry() %>%
+  group_by(TRACT) %>%
+  summarize(
+            nv = sum(`Count of Vehicles`, na.rm=T),
+            num_hh = max(num_hh, na.rm=T), 
+            pop_over_18 = max(pop_over_18, na.rm=T)
+            ) %>%
+  mutate(
+          nv_hh = round(nv / num_hh*100),
+          nv_po = round(nv / pop_over_18*100)
+          ) %>%
+  mutate(
+    nv_hh = ifelse(nv_hh > 100, 100, nv_hh),
+    nv_po = ifelse(nv_po > 100, 100, nv_po)
+  )
+
+trt_co <- dplyr::left_join(trt %>% select(TRACT), trt_co, by="TRACT")
+
+pal <- colorNumeric(
+  palette = "YlOrRd", 
+  domain = trt_co$nv_hh
+)
+
+leaflet() %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(
+  data = trt_co %>% sf::st_transform(4326), 
+  fillColor = ~pal(nv_hh),      # Fill color of the polygons
+  color = "grey",          # Border color
+  weight = 1,              # Border thickness
+  fillOpacity = 0.6,       # Fill opacity
+  label = ~paste0("Tract ", TRACT, ": ", nv_hh, "% of 2020 HH")            # Add interactive popups (e.g., county name)
+  )
+
+```
+
+
+We can also correlate median household income in each tract in the 2019-2023 5-year American Community Survey with our "# vehicles / # households" statistic. When we do this, we find that every $25,000 increase in tract median income is associated with a 7 percentage point increase in our vehicles-per-household metric.
 
 
 ```{r}
+trt_d_co <- 
+  sf::st_join(x = trt_d %>% sf::st_transform(4326), y = co) %>%
+  sf::st_drop_geometry() %>%
+  group_by(TRACT) %>%
+  summarize(
+            nv = sum(`Count of Vehicles`, na.rm=T),
+            med_hh_inc = max(med_hh_inc, na.rm=T)
+            ) %>%
+  dplyr::left_join(y = trt %>% sf::st_drop_geometry(), by = "TRACT") %>%
+    mutate(
+          nv_hh = round(nv / num_hh*100),
+          nv_po = round(nv / pop_over_18*100)
+          ) %>%
+  mutate(
+    nv_hh = ifelse(nv_hh > 100, 100, nv_hh),
+    nv_po = ifelse(nv_po > 100, 100, nv_po)
+  ) %>% 
+  filter(med_hh_inc != -Inf)
 
+
+# GET EQUATION AND R-SQUARED AS STRING
+# SOURCE: https://groups.google.com/forum/#!topic/ggplot2/1TgH-kG5XMA
+
+lm_eqn <- function(df, x, y){
+    m <- lm( formula(paste(y, " ~ ", x)), df);
+    eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
+         list(a = format(unname(coef(m)[1]), digits = 2),
+              b = format(unname(coef(m)[2]), digits = 2),
+             r2 = format(summary(m)$r.squared, digits = 3)))
+    as.character(as.expression(eq));
+}
+
+ggplot(data = trt_d_co,
+       aes(x = med_hh_inc, y = nv_hh)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  geom_text(x = 50000, y = 80, label = lm_eqn(trt_d_co, x = "med_hh_inc", "nv_hh"), parse = TRUE) +
+  ylab("# vehicles / # households") +
+  xlab("Median household income") +
+  theme_minimal() +
+  ggtitle("Richer areas have more cars") +
+  labs(caption = "Note: tract income is top-coded at $250,000") +
+  theme(plot.caption = element_text(hjust = 0))
+  
+  
 ```
+
+
+
+
+
+
 
 
 
