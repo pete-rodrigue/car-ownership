@@ -5,20 +5,113 @@ date: "2026-02-18"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-co <- readr::read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vSOGUHkvJwIW_vFfjCPjvBQBW2K9JAfl7An78DTK5CLW-LIrFRBxBMgexXweqZbgLpOUMZXxwbwyF30/pub?gid=1380852961&single=true&output=csv")
+```{r setup, include=FALSE, echo=F, warning=F, message=F}
+library(readr)
+library(sf)
+library(dplyr)
+library(leaflet)
+
+
+co <- readr::read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vSOGUHkvJwIW_vFfjCPjvBQBW2K9JAfl7An78DTK5CLW-LIrFRBxBMgexXweqZbgLpOUMZXxwbwyF30/pub?gid=1380852961&single=true&output=csv") %>%
+  sf::st_as_sf(., coords = c("Geocodio Longitude", "Geocodio Latitude"), crs = 4326)
 
 # https://opendata.dc.gov/datasets/DCGIS::single-member-district-from-2023/about
-smd <- tktk
+smd <- sf::st_read("~/GitHub/car-ownership/data/Single_Member_District_from_2023/Single_Member_District_from_2023.shp") %>%
+  sf::st_transform(crs = 4326)
 
 # https://opendata.dc.gov/datasets/DCGIS::advisory-neighborhood-commissions-from-2023/about
-anc <- tktk
+anc <- sf::st_read("~/GitHub/car-ownership/data/Advisory_Neighborhood_Commissions_from_2023/Advisory_Neighborhood_Commissions_from_2023.shp") %>%
+  sf::st_transform(crs = 4326)
 
 # https://opendata.dc.gov/datasets/DCGIS::address-points/about
-pts <- tktk
+pts <- readr::read_csv("~/GitHub/car-ownership/data/Address_Points.csv") %>%
+  sf::st_as_sf(., coords = c("LONGITUDE", "LATITUDE"), crs = 4326)
 
-# 
-trt <- tktk
+# https://opendata.dc.gov/datasets/DCGIS::census-tracts-in-2020/about
+trt <- sf::st_read("~/GitHub/car-ownership/data/Census_Tracts_in_2020/Census_Tracts_in_2020.shp")
 ```
+
+
+```{r}
+smd_co <- 
+  sf::st_join(x = smd, y = co) %>%
+  sf::st_drop_geometry() %>%
+  group_by(SMD_ID) %>%
+  summarize(car_households = n_distinct(Address))
+
+smd_pts <- 
+  sf::st_join(x = smd, y = pts) %>%
+  sf::st_drop_geometry() %>%
+  # filter(RESIDENTIAL_TYPE == "RESIDENTIAL") %>%
+  group_by(SMD_ID) %>%
+  summarize(total_households = sum(HOUSING_UNIT_COUNT, na.rm=T))
+
+
+smd_any_car <- 
+  dplyr::full_join(smd_co, smd_pts, by = "SMD_ID")
+
+smd_any_car <-
+  dplyr::left_join(x = smd %>% select(SMD_ID), 
+                   y = smd_any_car,
+                   by = "SMD_ID") %>%
+  mutate(`% of households with cars` = round(car_households / total_households * 100, 0)) %>%
+  filter(!is.infinite(`% of households with cars`)) %>%
+  mutate(`% of households with cars` = ifelse(`% of households with cars` > 100, 100, `% of households with cars`))
+
+pal <- colorNumeric(
+  palette = "plasma", # Using a viridis palette
+  domain = smd_any_car$`% of households with cars`
+)
+
+leaflet() %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(
+  data = smd_any_car, 
+  fillColor = ~pal(`% of households with cars`),      # Fill color of the polygons
+  color = "grey",          # Border color
+  stroke = F,
+  weight = 0,              # Border thickness
+  fillOpacity = 0.6,       # Fill opacity
+  label = ~`% of households with cars`            # Add interactive popups (e.g., county name)
+  )
+
+
+mean_car_count <-
+  co %>%
+  sf::st_drop_geometry() %>%
+  group_by(SMD) %>%
+  summarise(
+    car_stat = round(mean(`Count of Vehicles`, na.rm=T), 2)
+    # car_stat = quantile(`Count of Vehicles`, probs = 0.8, na.rm = TRUE)
+    )
+
+pal <- colorNumeric(
+  palette = "plasma", # Using a viridis palette
+  domain = mean_car_count$car_stat
+)
+
+mean_car_count <-
+  dplyr::left_join(smd, 
+                   mean_car_count %>% mutate(SMD_ID = stringr::str_replace(string = SMD, pattern = "SMD ", replacement = '')), 
+                   by="SMD_ID")
+
+leaflet() %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(
+  data = mean_car_count, 
+  fillColor = ~pal(car_stat),      # Fill color of the polygons
+  color = "grey",          # Border color
+  stroke = F,
+  weight = 0,              # Border thickness
+  fillOpacity = 0.6,       # Fill opacity
+  label = ~car_stat            # Add interactive popups (e.g., county name)
+  )
+```
+
+
+```{r}
+
+```
+
 
 
