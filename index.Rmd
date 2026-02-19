@@ -16,9 +16,10 @@ library(ggplot2)
 # devtools::install_github("liamgilbey/ggwaffle")
 library(ggwaffle)
 library(patchwork)
+library(tigris)
 
 # set working directory to be the folder that this Rmd file is saved in, 
-# for convienience 
+# for convenience 
 current_path = rstudioapi::getActiveDocumentContext()$path 
 setwd(dirname(current_path))
 # print(getwd())
@@ -56,12 +57,80 @@ trt <- sf::st_read("data/Census_Tracts_in_2020/Census_Tracts_in_2020.shp") %>%
          pop_over_18 = P0030001
          ) %>%
   sf::st_transform(crs = 4326)
+
+# https://opendata.dc.gov/datasets/DCGIS::metro-stations-regional/about
+mto <- 
+  sf::st_read("data/Metro_Stations_(Regional)/Metro_Stations_(Regional).shp") %>%
+  mutate(state = substr(ADDRESS, nchar(ADDRESS) - 2 + 1, nchar(ADDRESS))) %>%
+  filter(state == "DC")
 ```
 
 
 In January 2016, there were `r format(sum(co[["Count of Vehicles"]]), big.mark = ",")` vehicles registered with the DC DMV at `r format(length(unique(co$Address)), big.mark=",")` residential addresses, according to data provided in a recent FOIA request.
 
-Keep in mind that this does not include any vehicles that residents are using that they have not registered with the DC DMV.
+Keep in mind that this does not include any vehicles that residents are using that they have not registered with the DC DMV. This also doesn't include non-residential vehicles.
+
+The DC DMV website says there are [310,000](https://dmv.dc.gov/page/about-dc-dmv) total vehicles registered in DC.
+
+If we just add up the number of 9'x18' parking spaces required for all these 310,000 vehicles, we get a total area of 1.8 square miles (162 sqft * 310,000 vehicles * 3.58701e-8 sqmi/sqft). If you parked all of these cars bumper to bumper, they would cover Capitol Hill.
+
+```{r}
+# Capitol Hill neighborhood center (approximate)
+center_lat <- 38.8897
+center_lon <- -76.9975
+
+# 1.8 square miles = 1.8 * 2589988.11 square meters
+target_area_m2 <- 1.8 * 2589988.11
+
+# Calculate side length of a square with that area (in meters)
+side_m <- sqrt(target_area_m2)
+
+# Convert side length to degrees
+# 1 degree latitude ~ 111,320 meters
+# 1 degree longitude ~ 111,320 * cos(lat) meters
+lat_deg <- side_m / 111320
+lon_deg <- side_m / (111320 * cos(center_lat * pi / 180))
+
+# Build the polygon corners
+half_lat <- lat_deg / 2
+half_lon <- lon_deg / 2
+
+polygon_coords <- matrix(
+  c(
+    center_lon - half_lon, center_lat - half_lat,
+    center_lon + half_lon, center_lat - half_lat,
+    center_lon + half_lon, center_lat + half_lat,
+    center_lon - half_lon, center_lat + half_lat,
+    center_lon - half_lon, center_lat - half_lat  # close the polygon
+  ),
+  ncol = 2, byrow = TRUE
+)
+
+# Create an sf polygon
+capitol_hill_poly <- st_sfc(
+  st_polygon(list(polygon_coords)),
+  crs = 4326
+)
+
+# Verify area (should be close to 1.8 sq miles)
+area_m2 <- as.numeric(st_area(st_transform(capitol_hill_poly, 32618)))
+area_sq_miles <- area_m2 / 2589988.11
+# cat(sprintf("Polygon area: %.4f square miles\n", area_sq_miles))
+
+# Draw the map
+leaflet() |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  addPolygons(
+    data       = capitol_hill_poly,
+    color      = "#B22222",
+    weight     = 2,
+    opacity    = 1,
+    fillColor  = "#B22222",
+    fillOpacity = 0.2,
+    label      = "Capitol Hill (~1.8 sq mi)"
+  ) |>
+  setView(lng = center_lon, lat = center_lat, zoom = 12)
+```
 
 Here is the breakdown of how many households owned one, versus, two, versus 3 vehicles, etc:
 
@@ -242,7 +311,7 @@ leaflet() %>%
 ```
 
 
-We can also correlate median household income in each tract in the 2019-2023 5-year American Community Survey with our "# vehicles / # households" statistic. When we do this, we find that every $25,000 increase in tract median income is associated with a 7 percentage point increase in our vehicles-per-household metric.
+We can also correlate median household income in each tract in the 2019-2023 5-year American Community Survey with our "# vehicles / # households" statistic. When we do this, we find that every $25,000 increase in tract median income is associated with an increase of 7 additional cars per household.
 
 
 ```{r}
@@ -289,12 +358,32 @@ ggplot(data = trt_d_co,
   ggtitle("Richer areas have more cars") +
   labs(caption = "Note: tract income is top-coded at $250,000") +
   theme(plot.caption = element_text(hjust = 0))
-  
-  
 ```
 
 
+```{r}
+mto_buffer <- sf::st_buffer(x = mto, dist = 800) %>% sf::st_transform(4326)
+n_cars_by_metro <-
+  sf::st_join(x = sf::st_as_sf(sf::st_union(mto_buffer, by_feature = F)), y = co) %>%
+  sf::st_drop_geometry() %>%
+  # group_by(NAME) %>%
+  summarize(nv = sum(`Count of Vehicles`, na.rm=T)) %>%
+  pull(nv)
+```
 
+There are `r format(n_cars_by_metro, big.mark=",")` registered cars within 800 meters of a metro station in DC according to this data set. That is `r round(n_cars_by_metro / sum(co[["Count of Vehicles"]]) * 100)`% of the total number of vehicles.
+
+```{r}
+leaflet() %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(
+  data = sf::st_union(mto_buffer, by_feature = F), 
+  fillColor = "blue",      # Fill color of the polygons
+  color = "grey",          # Border color
+  weight = 1,              # Border thickness
+  fillOpacity = 0.6        # Fill opacity
+  )
+```
 
 
 
