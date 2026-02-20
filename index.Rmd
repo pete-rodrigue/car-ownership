@@ -1,5 +1,5 @@
 ---
-title: "Car ownership in DC"
+title: "Motor vehicle ownership in DC"
 author: "pete rodrigue"
 date: "2026-02-18"
 output: html_document
@@ -66,13 +66,13 @@ mto <-
 ```
 
 
-In January 2016, there were `r format(sum(co[["Count of Vehicles"]]), big.mark = ",")` vehicles registered with the DC DMV at `r format(length(unique(co$Address)), big.mark=",")` residential addresses, according to data provided in a recent FOIA request.
+In January 2026, there were `r format(sum(co[["Count of Vehicles"]]), big.mark = ",")` vehicles registered with the DC DMV at `r format(length(unique(co$Address)), big.mark=",")` residential addresses, according to data provided in a recent FOIA request.
 
-Keep in mind that this does not include any vehicles that residents are using that they have not registered with the DC DMV. This also doesn't include non-residential vehicles.
+Keep in mind that this does not include any vehicles that are owned by DC residents, but registered in another state. This also doesn't include vehicles registered at non-residential addresses.
 
 The DC DMV website says there are [310,000](https://dmv.dc.gov/page/about-dc-dmv) total vehicles registered in DC.
 
-If we just add up the number of 9'x18' parking spaces required for all these 310,000 vehicles, we get a total area of 1.8 square miles (162 sqft * 310,000 vehicles * 3.58701e-8 sqmi/sqft). If you parked all of these cars bumper to bumper, they would cover Capitol Hill.
+Let's ignore the fact that some of these vehicles are likely construction vehicles and other large trucks. If we add up the number of 9'x18' parking spaces required for these 310,000 vehicles, we get a total area of 1.8 square miles (162 sqft * 310,000 vehicles * 3.58701e-8 sqmi/sqft). If you parked all of these vehicles bumper to bumper, they would cover Capitol Hill.
 
 ```{r}
 # Capitol Hill neighborhood center (approximate)
@@ -132,13 +132,15 @@ leaflet() |>
   setView(lng = center_lon, lat = center_lat, zoom = 12)
 ```
 
-Here is the breakdown of how many households owned one, versus, two, versus 3 vehicles, etc:
 
 ```{r}
 # table(co$`Count of Vehicles`)
 ```
 
-And here is that same breakdown in percentage terms:
+This write up will analyze the distribution of vehicle ownership in the data set DMV provided.
+<br>
+<br>
+
 
 ```{r}
 # round(prop.table(table(co$`Count of Vehicles`))*100, 5)
@@ -202,7 +204,7 @@ p1 <-
   theme(legend.position = "none") +
   xlab("") +
   ylab("") +
-  ggtitle("For example, only about 1.6% of households own 4 or more cars...") +
+  ggtitle("For example: only about 1.6% of households own 4 or more vehicles...") +
   theme(plot.title = element_text(size = 12))
 
 
@@ -221,12 +223,12 @@ p2 <-
   theme(legend.position = "bottom") +
   xlab("") +
   ylab("") +
-  ggtitle("But those households account for almost 6% of cars registered in DC") +
+  ggtitle("But those households account for almost 6% of vehicles registered in DC") +
   theme(plot.title = element_text(size = 12))
 
 
 p1 / p2 + 
-  plot_annotation('Households with multiple cars are disproportionate share of total car ownership in DC', 
+  plot_annotation('Households with multiple vehicles account for disproportionate share of total vehicles', 
                   caption = paste0(
                     "There are 100 squares in each plot.\n", 
                     "In the first plot, each square represents roughly 900 addresses/households. (There are 89,871 total addresses in the data set).\n",
@@ -237,7 +239,7 @@ p1 / p2 +
 
 ```
 
-According to this FOIA'd data, here is the number of cars registered in each ANC Single Member District (SMD):
+According to this FOIA'd data, here is the number of vehicles registered in each ANC Single Member District (SMD):
 
 ```{r}
 smd_co <- 
@@ -311,7 +313,7 @@ leaflet() %>%
 ```
 
 
-We can also correlate median household income in each tract in the 2019-2023 5-year American Community Survey with our "# vehicles / # households" statistic. When we do this, we find that every $25,000 increase in tract median income is associated with an increase of 7 additional cars per household.
+We can correlate median household income in each tract in the 2019-2023 5-year American Community Survey with our "# vehicles / # households" statistic. When we do this, we find that every $25,000 increase in tract median income is associated with an increase of 7 additional cars per household.
 
 
 ```{r}
@@ -355,7 +357,7 @@ ggplot(data = trt_d_co,
   ylab("# vehicles / # households") +
   xlab("Median household income") +
   theme_minimal() +
-  ggtitle("Richer areas have more cars") +
+  ggtitle("Richer areas have more vehicles") +
   labs(caption = "Note: tract income is top-coded at $250,000") +
   theme(plot.caption = element_text(hjust = 0))
 ```
@@ -371,7 +373,7 @@ n_cars_by_metro <-
   pull(nv)
 ```
 
-There are `r format(n_cars_by_metro, big.mark=",")` registered cars within 800 meters of a metro station in DC according to this data set. That is `r round(n_cars_by_metro / sum(co[["Count of Vehicles"]]) * 100)`% of the total number of vehicles.
+There are `r format(n_cars_by_metro, big.mark=",")` registered vehicles within 800 meters of a metro station in DC according to this data set. That is `r round(n_cars_by_metro / sum(co[["Count of Vehicles"]]) * 100)`% of the total number of vehicles.
 
 ```{r}
 leaflet() %>% 
