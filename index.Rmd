@@ -68,66 +68,86 @@ mto <-
 
 In January 2026, there were `r format(sum(co[["Count of Vehicles"]]), big.mark = ",")` vehicles registered with the DC DMV at `r format(length(unique(co$Address)), big.mark=",")` residential addresses, according to data provided in a recent FOIA request.
 
-Keep in mind that this does not include any vehicles that are owned by DC residents, but registered in another state. This also doesn't include vehicles registered at non-residential addresses.
+Keep in mind that this does not include any vehicles that are owned by DC residents, but registered in another state. This also doesn't include vehicles registered at non-residential addresses, like rental cars, university vehicles, or federally-owned vehicles. 
 
-The DC DMV website says there are [310,000](https://dmv.dc.gov/page/about-dc-dmv) total vehicles registered in DC.
+The DC DMV website says there are [310,000](https://dmv.dc.gov/page/about-dc-dmv) total vehicles registered in DC. 
 
-Let's ignore the fact that some of these vehicles are likely construction vehicles and other large trucks. If we add up the number of 9'x18' parking spaces required for these 310,000 vehicles, we get a total area of 1.8 square miles (162 sqft * 310,000 vehicles * 3.58701e-8 sqmi/sqft). If you parked all of these vehicles bumper to bumper, they would cover Capitol Hill.
+According to a 2023 U.S. DoT survey, there are [344,088](https://www.fhwa.dot.gov/policyinformation/statistics/2023/mv1.cfm) total motor vehicles registered in DC, of which [315,319](https://www.fhwa.dot.gov/policyinformation/statistics/2023/mv1.cfm) are privately owned (i.e. not owned by a government agency), which roughly aligns with the DMV website's 310k figure. 
+
+If we add up the number of 9'x18' parking spaces required for these 315,319 vehicles, we get a total area of 1.83 square miles (162 sqft * 315,319 vehicles * 3.58701e-8 sqmi/sqft). If you parked all of these vehicles bumper to bumper, they would cover Capitol Hill. 
+
+All 344,088 vehicles would cover 2 square miles. 
+
+According to the 2020-2024 American Community Survey, [36%](https://data.census.gov/table/ACSDT5Y2024.B08201?t=Transportation&g=040XX00US11&y=2024) of DC households do not have a motor vehicle.
+
 
 ```{r}
+
+
+make_polygon <- function(center_lat, center_lon, sqmi) {
+  # 1.8 square miles = 1.8 * 2589988.11 square meters
+  target_area_m2 <- sqmi * 2589988.11
+  
+  # Calculate side length of a square with that area (in meters)
+  side_m <- sqrt(target_area_m2)
+  
+  # Convert side length to degrees
+  # 1 degree latitude ~ 111,320 meters
+  # 1 degree longitude ~ 111,320 * cos(lat) meters
+  lat_deg <- side_m / 111320
+  lon_deg <- side_m / (111320 * cos(center_lat * pi / 180))
+  
+  # Build the polygon corners
+  half_lat <- lat_deg / 2
+  half_lon <- lon_deg / 2
+  
+  polygon_coords <- matrix(
+    c(
+      center_lon - half_lon, center_lat - half_lat,
+      center_lon + half_lon, center_lat - half_lat,
+      center_lon + half_lon, center_lat + half_lat,
+      center_lon - half_lon, center_lat + half_lat,
+      center_lon - half_lon, center_lat - half_lat  # close the polygon
+    ),
+    ncol = 2, byrow = TRUE
+  )
+  
+  # Create an sf polygon
+  return(
+    st_sfc(
+      st_polygon(list(polygon_coords)),
+      crs = 4326
+    )
+  ) 
+}
+
 # Capitol Hill neighborhood center (approximate)
 center_lat <- 38.8897
-center_lon <- -76.9975
+center_lon <- -76.993
 
-# 1.8 square miles = 1.8 * 2589988.11 square meters
-target_area_m2 <- 1.8 * 2589988.11
-
-# Calculate side length of a square with that area (in meters)
-side_m <- sqrt(target_area_m2)
-
-# Convert side length to degrees
-# 1 degree latitude ~ 111,320 meters
-# 1 degree longitude ~ 111,320 * cos(lat) meters
-lat_deg <- side_m / 111320
-lon_deg <- side_m / (111320 * cos(center_lat * pi / 180))
-
-# Build the polygon corners
-half_lat <- lat_deg / 2
-half_lon <- lon_deg / 2
-
-polygon_coords <- matrix(
-  c(
-    center_lon - half_lon, center_lat - half_lat,
-    center_lon + half_lon, center_lat - half_lat,
-    center_lon + half_lon, center_lat + half_lat,
-    center_lon - half_lon, center_lat + half_lat,
-    center_lon - half_lon, center_lat - half_lat  # close the polygon
-  ),
-  ncol = 2, byrow = TRUE
-)
-
-# Create an sf polygon
-capitol_hill_poly <- st_sfc(
-  st_polygon(list(polygon_coords)),
-  crs = 4326
-)
-
-# Verify area (should be close to 1.8 sq miles)
-area_m2 <- as.numeric(st_area(st_transform(capitol_hill_poly, 32618)))
-area_sq_miles <- area_m2 / 2589988.11
-# cat(sprintf("Polygon area: %.4f square miles\n", area_sq_miles))
+private_vehicles_poly <- make_polygon(center_lat, center_lon, sqmi = 1.83)
+# all_vehicles_poly <- make_polygon(center_lat, center_lon, sqmi = 2)
 
 # Draw the map
 leaflet() |>
   addProviderTiles(providers$CartoDB.Positron) |>
+  # addPolygons(
+  #   data       = all_vehicles_poly,
+  #   color      = "orange",
+  #   weight     = 2,
+  #   opacity    = 1,
+  #   fillColor  = "orange",
+  #   fillOpacity = 0.2,
+  #   label      = "All vehicles (~2 sq mi)"
+  # ) |>
   addPolygons(
-    data       = capitol_hill_poly,
+    data       = private_vehicles_poly,
     color      = "#B22222",
     weight     = 2,
     opacity    = 1,
     fillColor  = "#B22222",
     fillOpacity = 0.2,
-    label      = "Capitol Hill (~1.8 sq mi)"
+    label      = "All private vehicles (~1.83 sq mi)"
   ) |>
   setView(lng = center_lon, lat = center_lat, zoom = 12)
 ```
