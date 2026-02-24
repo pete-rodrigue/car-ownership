@@ -74,9 +74,9 @@ The DC DMV website says there are [310,000](https://dmv.dc.gov/page/about-dc-dmv
 
 According to a 2023 U.S. DoT survey, there are [344,088](https://www.fhwa.dot.gov/policyinformation/statistics/2023/mv1.cfm) total motor vehicles registered in DC, of which [315,319](https://www.fhwa.dot.gov/policyinformation/statistics/2023/mv1.cfm) are privately owned (i.e. not owned by a government agency), which roughly aligns with the DMV website's 310k figure. 
 
-If we add up the number of 9'x18' parking spaces required for these 315,319 vehicles, we get a total area of 1.83 square miles (162 sqft * 315,319 vehicles * 3.58701e-8 sqmi/sqft). If you parked all of these vehicles bumper to bumper, they would cover Capitol Hill. 
+If we add up the number of 8'x22' parking spaces required for these 315,319 vehicles, we get a total area of 2 square miles (176 sqft * 315,319 vehicles * 3.58701e-8 sqmi/sqft). If you parked all of these vehicles bumper to bumper, they would cover Capitol Hill. 
 
-All 344,088 vehicles would cover 2 square miles. 
+All 344,088 vehicles would cover closer to 2.2 square miles. 
 
 According to the 2020-2024 American Community Survey, [36%](https://data.census.gov/table/ACSDT5Y2024.B08201?t=Transportation&g=040XX00US11&y=2024) of DC households do not have a motor vehicle.
 
@@ -125,7 +125,7 @@ make_polygon <- function(center_lat, center_lon, sqmi) {
 center_lat <- 38.8897
 center_lon <- -76.993
 
-private_vehicles_poly <- make_polygon(center_lat, center_lon, sqmi = 1.83)
+private_vehicles_poly <- make_polygon(center_lat, center_lon, sqmi = 2)
 # all_vehicles_poly <- make_polygon(center_lat, center_lon, sqmi = 2)
 
 # Draw the map
@@ -147,7 +147,7 @@ leaflet() |>
     opacity    = 1,
     fillColor  = "#B22222",
     fillOpacity = 0.2,
-    label      = "All private vehicles (~1.83 sq mi)"
+    label      = "All private vehicles (~2 sq mi)"
   ) |>
   setView(lng = center_lon, lat = center_lat, zoom = 12)
 ```
