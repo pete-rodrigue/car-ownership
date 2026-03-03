@@ -17,6 +17,9 @@ library(ggplot2)
 library(ggwaffle)
 library(patchwork)
 library(tigris)
+library(maptiles)    # fetch tile basemap as a SpatRaster
+library(tidyterra)   # geom_spatraster_rgb() to plot it in ggplot2
+library(ggspatial)   # north arrow + scale bar
 
 # set working directory to be the folder that this Rmd file is saved in, 
 # for convenience 
@@ -80,26 +83,17 @@ All 344,088 vehicles would cover closer to 2 square miles.
 
 According to the 2020-2024 American Community Survey, [36%](https://data.census.gov/table/ACSDT5Y2024.B08201?t=Transportation&g=040XX00US11&y=2024) of DC households do not have a motor vehicle.
 
+```{r static_map}
+options(tigris_use_cache = TRUE)
 
-```{r}
-
-
+# ── Helper: build square polygon ─────────────────────────────────────────────
 make_polygon <- function(center_lat, center_lon, sqmi) {
-  # 1.8 square miles = 1.8 * 2589988.11 square meters
   target_area_m2 <- sqmi * 2589988.11
-  
-  # Calculate side length of a square with that area (in meters)
-  side_m <- sqrt(target_area_m2)
-  
-  # Convert side length to degrees
-  # 1 degree latitude ~ 111,320 meters
-  # 1 degree longitude ~ 111,320 * cos(lat) meters
-  lat_deg <- side_m / 111320
-  lon_deg <- side_m / (111320 * cos(center_lat * pi / 180))
-  
-  # Build the polygon corners
-  half_lat <- lat_deg / 2
-  half_lon <- lon_deg / 2
+  side_m         <- sqrt(target_area_m2)
+  lat_deg        <- side_m / 111320
+  lon_deg        <- side_m / (111320 * cos(center_lat * pi / 180))
+  half_lat       <- lat_deg / 2
+  half_lon       <- lon_deg / 2
   
   polygon_coords <- matrix(
     c(
@@ -107,49 +101,158 @@ make_polygon <- function(center_lat, center_lon, sqmi) {
       center_lon + half_lon, center_lat - half_lat,
       center_lon + half_lon, center_lat + half_lat,
       center_lon - half_lon, center_lat + half_lat,
-      center_lon - half_lon, center_lat - half_lat  # close the polygon
+      center_lon - half_lon, center_lat - half_lat
     ),
     ncol = 2, byrow = TRUE
   )
   
-  # Create an sf polygon
-  return(
-    st_sfc(
-      st_polygon(list(polygon_coords)),
-      crs = 4326
-    )
-  ) 
+  st_sf(geometry = st_sfc(st_polygon(list(polygon_coords)), crs = 4326))
 }
 
-# Capitol Hill neighborhood center (approximate)
+# ── Data ──────────────────────────────────────────────────────────────────────
 center_lat <- 38.8897
 center_lon <- -76.993
 
 private_vehicles_poly <- make_polygon(center_lat, center_lon, sqmi = 1.79)
-# all_vehicles_poly <- make_polygon(center_lat, center_lon, sqmi = 2)
 
-# Draw the map
-leaflet() |>
-  addProviderTiles(providers$CartoDB.Positron) |>
-  # addPolygons(
-  #   data       = all_vehicles_poly,
-  #   color      = "orange",
-  #   weight     = 2,
-  #   opacity    = 1,
-  #   fillColor  = "orange",
-  #   fillOpacity = 0.2,
-  #   label      = "All vehicles (~2 sq mi)"
-  # ) |>
-  addPolygons(
-    data       = private_vehicles_poly,
-    color      = "#B22222",
-    weight     = 2,
-    opacity    = 1,
-    fillColor  = "#B22222",
-    fillOpacity = 0.2,
-    label      = "All private vehicles (~1.79 sq mi)"
-  ) |>
-  setView(lng = center_lon, lat = center_lat, zoom = 12)
+# DC boundary from TIGRIS (state FIPS 11 = District of Columbia)
+dc_boundary <- states(cb = TRUE, progress_bar = FALSE) |>
+  filter(STATEFP == "11") |>
+  st_transform(4326)
+
+# ── Fetch basemap tiles clipped to DC extent ──────────────────────────────────
+# maptiles fetches tiles for a given sf object's bounding box
+basemap_tiles <- get_tiles(
+  x        = dc_boundary,
+  provider = "CartoDB.Positron",
+  zoom     = 12,
+  crop     = TRUE   # crop raster to the exact dc_boundary bbox
+)
+
+# Mask tiles to DC boundary shape (sets pixels outside DC to NA)
+basemap_masked <- terra::mask(basemap_tiles, terra::vect(dc_boundary))
+
+# ── Map ───────────────────────────────────────────────────────────────────────
+p <- ggplot() +
+  
+  # Basemap raster, masked to DC boundary
+  geom_spatraster_rgb(data = basemap_masked) +
+  
+  # DC boundary outline
+  geom_sf(data      = dc_boundary,
+          fill      = NA,
+          color     = "grey30",
+          linewidth = 0.6) +
+  
+  # Capitol Hill square polygon
+  geom_sf(data      = private_vehicles_poly,
+          fill      = "#B22222",
+          color     = "#B22222",
+          alpha     = 0.25,
+          linewidth = 0.8) +
+  
+  # Crop plot to DC bounding box
+  coord_sf(
+    xlim   = st_bbox(dc_boundary)[c("xmin", "xmax")],
+    ylim   = st_bbox(dc_boundary)[c("ymin", "ymax")],
+    expand = FALSE
+  ) +
+  
+  # North arrow + scale bar
+  # annotation_north_arrow(
+  #   location    = "tr",
+  #   which_north = "true",
+  #   style       = north_arrow_fancy_orienteering(text_size = 8)
+  # ) +
+  # annotation_scale(location = "bl", width_hint = 0.3) +
+  
+  labs(
+    # title    = "Capitol Hill — Private Vehicles Coverage (~1.79 sq mi)",
+    # subtitle = "Washington, D.C.",
+    caption  = "Basemap © CartoDB / OpenStreetMap contributors"
+  ) +
+  theme_void(base_size = 12) +
+  theme(
+    plot.title    = element_text(face = "bold", size = 13, margin = margin(b = 4)),
+    plot.subtitle = element_text(color = "grey40", size = 10),
+    plot.caption  = element_text(color = "grey60", size = 7,
+                                 margin = margin(t = 6)),
+    plot.margin   = margin(10, 10, 10, 10)
+  )
+
+p
+```
+
+
+```{r leaflet_map, eval=F, include=F, echo=F}
+
+# 
+# make_polygon <- function(center_lat, center_lon, sqmi) {
+#   # 1.8 square miles = 1.8 * 2589988.11 square meters
+#   target_area_m2 <- sqmi * 2589988.11
+#   
+#   # Calculate side length of a square with that area (in meters)
+#   side_m <- sqrt(target_area_m2)
+#   
+#   # Convert side length to degrees
+#   # 1 degree latitude ~ 111,320 meters
+#   # 1 degree longitude ~ 111,320 * cos(lat) meters
+#   lat_deg <- side_m / 111320
+#   lon_deg <- side_m / (111320 * cos(center_lat * pi / 180))
+#   
+#   # Build the polygon corners
+#   half_lat <- lat_deg / 2
+#   half_lon <- lon_deg / 2
+#   
+#   polygon_coords <- matrix(
+#     c(
+#       center_lon - half_lon, center_lat - half_lat,
+#       center_lon + half_lon, center_lat - half_lat,
+#       center_lon + half_lon, center_lat + half_lat,
+#       center_lon - half_lon, center_lat + half_lat,
+#       center_lon - half_lon, center_lat - half_lat  # close the polygon
+#     ),
+#     ncol = 2, byrow = TRUE
+#   )
+#   
+#   # Create an sf polygon
+#   return(
+#     st_sfc(
+#       st_polygon(list(polygon_coords)),
+#       crs = 4326
+#     )
+#   ) 
+# }
+# 
+# # Capitol Hill neighborhood center (approximate)
+# center_lat <- 38.8897
+# center_lon <- -76.993
+# 
+# private_vehicles_poly <- make_polygon(center_lat, center_lon, sqmi = 1.79)
+# # all_vehicles_poly <- make_polygon(center_lat, center_lon, sqmi = 2)
+# 
+# # Draw the map
+# leaflet() |>
+#   addProviderTiles(providers$CartoDB.Positron) |>
+#   # addPolygons(
+#   #   data       = all_vehicles_poly,
+#   #   color      = "orange",
+#   #   weight     = 2,
+#   #   opacity    = 1,
+#   #   fillColor  = "orange",
+#   #   fillOpacity = 0.2,
+#   #   label      = "All vehicles (~2 sq mi)"
+#   # ) |>
+#   addPolygons(
+#     data       = private_vehicles_poly,
+#     color      = "#B22222",
+#     weight     = 2,
+#     opacity    = 1,
+#     fillColor  = "#B22222",
+#     fillOpacity = 0.2,
+#     label      = "All private vehicles (~1.79 sq mi)"
+#   ) |>
+#   setView(lng = center_lon, lat = center_lat, zoom = 12)
 ```
 
 
@@ -271,20 +374,37 @@ smd_co <-
 smd_co <- dplyr::left_join(smd %>% select(SMD_ID), smd_co, by="SMD_ID")
 
 
-pal <- colorNumeric(
-  palette = "YlOrRd", 
-  domain = smd_co$nv
-)
+# pal <- colorNumeric(
+#   palette = "YlOrRd", 
+#   domain = smd_co$nv
+# )
+# 
+# leaflet() %>% 
+#   addProviderTiles(providers$CartoDB.Positron) %>%
+#   addPolygons(
+#   data = smd_co, 
+#   fillColor = ~pal(nv),      # Fill color of the polygons
+#   color = "grey",          # Border color
+#   weight = 1,              # Border thickness
+#   fillOpacity = 0.6,       # Fill opacity
+#   label = ~paste0("SMD ", SMD_ID, ": ", `nv`)            # Add interactive popups (e.g., county name)
+#   )
 
-leaflet() %>% 
-  addProviderTiles(providers$CartoDB.Positron) %>%
-  addPolygons(
-  data = smd_co, 
-  fillColor = ~pal(nv),      # Fill color of the polygons
-  color = "grey",          # Border color
-  weight = 1,              # Border thickness
-  fillOpacity = 0.6,       # Fill opacity
-  label = ~paste0("SMD ", SMD_ID, ": ", `nv`)            # Add interactive popups (e.g., county name)
+ggplot(smd_co) +
+  geom_sf(aes(fill = nv), color = "grey", linewidth = 0.3) +
+  scale_fill_gradientn(
+    colors = RColorBrewer::brewer.pal(9, "YlOrRd"),
+    name = "Registered\nVehicles"
+  ) +
+  labs(
+    title = "Registered Vehicles by ANC Single Member District"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    legend.position = "right",
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 9)
   )
 
 ```
@@ -314,22 +434,40 @@ trt_co <-
 
 trt_co <- dplyr::left_join(trt %>% select(TRACT), trt_co, by="TRACT")
 
-pal <- colorNumeric(
-  palette = "YlOrRd", 
-  domain = trt_co$nv_hh
-)
+# pal <- colorNumeric(
+#   palette = "YlOrRd", 
+#   domain = trt_co$nv_hh
+# )
+# 
+# leaflet() %>% 
+#   addProviderTiles(providers$CartoDB.Positron) %>%
+#   addPolygons(
+#   data = trt_co %>% sf::st_transform(4326), 
+#   fillColor = ~pal(nv_hh),      # Fill color of the polygons
+#   color = "grey",          # Border color
+#   weight = 1,              # Border thickness
+#   fillOpacity = 0.6,       # Fill opacity
+#   label = ~paste0("Tract ", TRACT, ": ", nv_hh, "% of 2020 HH")            # Add interactive popups (e.g., county name)
+#   )
 
-leaflet() %>% 
-  addProviderTiles(providers$CartoDB.Positron) %>%
-  addPolygons(
-  data = trt_co %>% sf::st_transform(4326), 
-  fillColor = ~pal(nv_hh),      # Fill color of the polygons
-  color = "grey",          # Border color
-  weight = 1,              # Border thickness
-  fillOpacity = 0.6,       # Fill opacity
-  label = ~paste0("Tract ", TRACT, ": ", nv_hh, "% of 2020 HH")            # Add interactive popups (e.g., county name)
+
+
+ggplot(trt_co %>% sf::st_transform(4326)) +
+  geom_sf(aes(fill = nv_hh), color = "grey", linewidth = 0.3) +
+  scale_fill_gradientn(
+    colors = RColorBrewer::brewer.pal(9, "YlOrRd"),
+    name = "% of 2020\nHouseholds"
+  ) +
+  labs(
+    title = "Vehicles per Household by Census Tract"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    legend.position = "right",
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 9)
   )
-
 ```
 
 
@@ -370,12 +508,12 @@ lm_eqn <- function(df, x, y){
 }
 
 ggplot(data = trt_d_co,
-       aes(x = med_hh_inc, y = nv_hh)) +
+       aes(x = med_hh_inc/1000, y = nv_hh)) +
   geom_point() +
   geom_smooth(method = "lm") +
   geom_text(x = 50000, y = 80, label = lm_eqn(trt_d_co, x = "med_hh_inc", "nv_hh"), parse = TRUE) +
   ylab("# vehicles / # households") +
-  xlab("Median household income") +
+  xlab("Median household income (thousands of $)") +
   theme_minimal() +
   ggtitle("Richer areas have more vehicles") +
   labs(caption = "Note: tract income is top-coded at $250,000") +
@@ -391,20 +529,128 @@ n_cars_by_metro <-
   # group_by(NAME) %>%
   summarize(nv = sum(`Count of Vehicles`, na.rm=T)) %>%
   pull(nv)
+
+n_cars_by_metro_d <-
+  sf::st_join(x = mto_buffer, y = co) %>%
+  # sf::st_drop_geometry() %>%
+  group_by(NAME) %>%
+  summarize(nv = sum(`Count of Vehicles`, na.rm=T)) 
 ```
 
 There are `r format(n_cars_by_metro, big.mark=",")` registered vehicles within 800 meters of a metro station in DC according to this data set. That is `r round(n_cars_by_metro / sum(co[["Count of Vehicles"]]) * 100)`% of the total number of vehicles.
 
+```{r, echo=F, warning=F, message=F, include=F}
+# n_cars_pal <- colorNumeric(palette = "YlOrRd", domain = n_cars_by_metro_d$nv)
+# 
+# leaflet() %>% 
+#   addProviderTiles(providers$CartoDB.Positron) %>%
+#   addPolygons(
+#   data = n_cars_by_metro_d, 
+#   fillColor = ~n_cars_pal(nv),      # Fill color of the polygons
+#   weight = 0,              # Border thickness
+#   fillOpacity = 0.6        # Fill opacity
+#   )
+
+# Get DC boundary
+dc_boundary <- counties(state = "DC", cb = TRUE) %>%
+  sf::st_transform(sf::st_crs(n_cars_by_metro_d))
+
+# Download and mask basemap to DC boundary
+basemap <- get_tiles(
+  dc_boundary,
+  provider = "CartoDB.Positron",
+  zoom = 13,
+  crop = TRUE
+)
+basemap_masked <- terra::mask(basemap, terra::vect(dc_boundary))
+```
+
 ```{r}
-leaflet() %>% 
-  addProviderTiles(providers$CartoDB.Positron) %>%
-  addPolygons(
-  data = sf::st_union(mto_buffer, by_feature = F), 
-  fillColor = "blue",      # Fill color of the polygons
-  color = "grey",          # Border color
-  weight = 1,              # Border thickness
-  fillOpacity = 0.6        # Fill opacity
+# Plot
+ggplot() +
+  geom_spatraster_rgb(data = basemap_masked) +
+  geom_sf(
+    data = n_cars_by_metro_d,
+    aes(fill = nv),
+    color = NA,
+    alpha = 0.8
+  ) +
+  geom_sf(
+    data = dc_boundary,
+    fill = NA,
+    color = "black",
+    linewidth = 0.5
+  ) +
+  scale_fill_gradientn(
+    colors = RColorBrewer::brewer.pal(9, "YlOrRd"),
+    name = "Registered\nVehicles"
+  ) +
+  coord_sf(
+    xlim = sf::st_bbox(dc_boundary)[c("xmin", "xmax")],
+    ylim = sf::st_bbox(dc_boundary)[c("ymin", "ymax")]
+  ) +
+  labs(title = "There are over 43,000 vehicles registered\nwithin a 10-minute walk of a metro station") +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    legend.position = "right",
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 9)
   )
+```
+
+
+```{r}
+# leaflet() %>% 
+#   addProviderTiles(providers$CartoDB.Positron) %>%
+#   addPolygons(
+#   data = sf::st_union(mto_buffer, by_feature = F), 
+#   fillColor = "#487441",      # Fill color of the polygons
+#   color = "grey",          # Border color
+#   weight = 1,              # Border thickness
+#   fillOpacity = 0.6        # Fill opacity
+#   )
+# 
+# # Get DC boundary
+# dc_boundary <- counties(state = "DC", cb = TRUE) %>%
+#   sf::st_transform(sf::st_crs(mto_buffer))
+# 
+# # Get the buffer union
+# buffer_union <- sf::st_union(mto_buffer, by_feature = F)
+# 
+# # Download basemap tiles cropped to DC extent
+# basemap <- get_tiles(
+#   dc_boundary,
+#   provider = "CartoDB.Positron",
+#   zoom = 13,
+#   crop = TRUE
+# )
+# 
+# # Mask the basemap raster to the DC boundary
+# dc_boundary_vect <- terra::vect(dc_boundary)
+# basemap_masked <- terra::mask(basemap, dc_boundary_vect)
+# 
+# # Plot
+# ggplot() +
+#   geom_spatraster_rgb(data = basemap_masked) +
+#   geom_sf(
+#     data = buffer_union,
+#     fill = "#487441",
+#     color = "grey",
+#     linewidth = 0.3,
+#     alpha = 0.6
+#   ) +
+#   geom_sf(
+#     data = dc_boundary,
+#     fill = NA,
+#     color = "black",
+#     linewidth = 0.5
+#   ) +
+#   coord_sf(
+#     xlim = sf::st_bbox(dc_boundary)[c("xmin", "xmax")],
+#     ylim = sf::st_bbox(dc_boundary)[c("ymin", "ymax")]
+#   ) +
+#   theme_void()
 ```
 
 
