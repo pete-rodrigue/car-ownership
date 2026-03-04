@@ -66,6 +66,17 @@ mto <-
   sf::st_read("data/Metro_Stations_(Regional)/Metro_Stations_(Regional).shp") %>%
   mutate(state = substr(ADDRESS, nchar(ADDRESS) - 2 + 1, nchar(ADDRESS))) %>%
   filter(state == "DC")
+
+# https://opendata.dc.gov/datasets/DCGIS::alleys-and-parking/explore?location=38.941233%2C-77.079861%2C15
+pk <- sf::read_sf("Alleys_and_Parking/Alleys_and_Parking.shp", quiet = T) %>%
+  filter(DESCRIPTIO == "Parking Lot")
+
+drop_units <- function(x) {
+  units(x) <- NULL
+  
+  return(x)
+}
+
 ```
 
 
@@ -182,6 +193,79 @@ p <- ggplot() +
 
 p
 ```
+
+
+This is a massive underestimate of the amount of space actually taken up by parking, however. To get a rough, likely low-ball estimate of the amount of parking in DC, you can add up the following:
+
+* the area of DC's parking lots (5.14 sqmi)
+* the area of DC's ~150,000 RPP (`r round(150000 * 158 * 3.58701e-8, 2)` sqmi), ~20,000 metered parking spots (`r round(20000 * 158 * 3.58701e-8, 2)` sqmi), and ~230,000 "other" street spaces (`r round(230000 * 158 * 3.58701e-8, 2)` sqmi)
+* the area of DC's single-family home parking spaces, assuming one parking space per single-family house (`r round((39451 + 78711) * 158 * 3.58701e-8, 2)` sqmi)
+
+```{r}
+pk_area <- drop_units(sf::st_area(sf::st_union(pk, by_feature = F))) * 3.86102e-7
+
+# https://ggwash.org/view/90490/street-parking-in-dc-is-way-too-cheap
+# https://www.point2homes.com/US/Neighborhood/DC/Washington-Demographics.html
+ps_area <-
+  pk_area +                      # parking lots from open data dc
+  (150000 * 158 * 3.58701e-8) +  # RPP spots
+  (20000 * 158 * 3.58701e-8) +   # metered spots
+  (230000 * 158 * 3.58701e-8) +  # "other" spaces
+  ((39451 + 78711) * 158 * 3.58701e-8)  # SFH spots
+
+parking_spots_poly <- make_polygon(center_lat, center_lon, sqmi = ps_area)
+
+p <- ggplot() +
+  
+  # Basemap raster, masked to DC boundary
+  geom_spatraster_rgb(data = basemap_masked) +
+  
+  # DC boundary outline
+  geom_sf(data      = dc_boundary,
+          fill      = NA,
+          color     = "grey30",
+          linewidth = 0.6) +
+  
+  # Capitol Hill square polygon
+  geom_sf(data      = parking_spots_poly,
+          fill      = "#B22222",
+          color     = "#B22222",
+          alpha     = 0.25,
+          linewidth = 0.8) +
+  
+  # Crop plot to DC bounding box
+  coord_sf(
+    xlim   = st_bbox(dc_boundary)[c("xmin", "xmax")],
+    ylim   = st_bbox(dc_boundary)[c("ymin", "ymax")],
+    expand = FALSE
+  ) +
+  
+  # North arrow + scale bar
+  # annotation_north_arrow(
+  #   location    = "tr",
+  #   which_north = "true",
+  #   style       = north_arrow_fancy_orienteering(text_size = 8)
+  # ) +
+  # annotation_scale(location = "bl", width_hint = 0.3) +
+  
+  labs(
+    # title    = "Capitol Hill — Private Vehicles Coverage (~1.79 sq mi)",
+    # subtitle = "Washington, D.C.",
+    caption  = "Basemap CartoDB / OpenStreetMap contributors"
+  ) +
+  theme_void(base_size = 12) +
+  theme(
+    plot.title    = element_text(face = "bold", size = 13, margin = margin(b = 4)),
+    plot.subtitle = element_text(color = "grey40", size = 10),
+    plot.caption  = element_text(color = "grey60", size = 7,
+                                 margin = margin(t = 6)),
+    plot.margin   = margin(10, 10, 10, 10)
+  )
+
+p
+```
+
+This covers over `r round(ps_area)` square miles. This is still an underestimate. It doesn't include underground parking, for example, or account for the fact that many single family homes have 2 parking spaces.
 
 
 ```{r leaflet_map, eval=F, include=F, echo=F}
