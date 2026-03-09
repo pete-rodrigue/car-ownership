@@ -7,10 +7,13 @@ output: html_document
 
 ```{r setup, include=F, echo=F, warning=F, message=F}
 knitr::opts_chunk$set(echo=F, warning=F, message=F)
+# remove.packages("ggplot2")
+# install.packages("ggplot2")
 library(readr)
 library(sf)
 library(dplyr)
 library(leaflet)
+library(leaflet.extras)
 library(rstudioapi)
 library(ggplot2)
 # devtools::install_github("liamgilbey/ggwaffle")
@@ -20,6 +23,7 @@ library(tigris)
 library(maptiles)    # fetch tile basemap as a SpatRaster
 library(tidyterra)   # geom_spatraster_rgb() to plot it in ggplot2
 library(ggspatial)   # north arrow + scale bar
+
 
 # set working directory to be the folder that this Rmd file is saved in, 
 # for convenience 
@@ -739,6 +743,49 @@ ggplot() +
 
 
 
+The map and table below shows the data at a granular level.
 
 
+```{r}
+
+co_jittered <- co
+
+min_j <- 0.00001
+co_jittered$lon <- st_coordinates(co_jittered)[, 1] + runif(n = nrow(co), min = min_j, max=min_j*10)
+co_jittered$lat <- st_coordinates(co_jittered)[, 2] + runif(n = nrow(co), min = min_j, max=min_j*10)
+
+leaflet(co_jittered) %>%
+  addTiles(
+    options = providerTileOptions(
+      # maxNativeZoom = 19, # The maximum zoom level provided by the tile source
+      maxZoom = 22        # The maximum zoom level allowed for the user
+    )
+  ) %>%  # Add default OpenStreetMap tiles
+  addCircleMarkers(
+    lng = ~lon,
+    lat = ~lat,
+    radius = ~`Count of Vehicles` + 2,
+    color = "purple",
+    fillOpacity = .7,
+    stroke=F,
+    label = ~paste0(`Count of Vehicles`, ": ", Address),
+    group="vehicles",
+    clusterOptions = markerClusterOptions(
+      # Markers will not be clustered at zoom level 10 and below (more zoomed in)
+      disableClusteringAtZoom = 16
+    )
+      )
+
+```
+
+```{r, warning=F, message=F}
+co %>% sf::st_drop_geometry() %>% 
+  select(Address, `Count of Vehicles`) %>% 
+  # slice(1:10000) %>%
+  DT::datatable(
+  .,
+  filter = 'top', # or 'bottom'
+  options = list(pageLength = 10) # Optional: set default number of entries shown
+)
+```
 
