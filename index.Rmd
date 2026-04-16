@@ -415,7 +415,7 @@ p1 <-
   theme(legend.position = "none") +
   xlab("") +
   ylab("") +
-  ggtitle("For example: only about 1.6% of households own 4 or more vehicles...") +
+  ggtitle("For example: About 1.4% of households own four or more vehicles") +
   theme(plot.title = element_text(size = 12))
 
 
@@ -442,8 +442,8 @@ p1 / p2 +
   plot_annotation('Households with multiple vehicles account for disproportionate share of total vehicles', 
                   caption = paste0(
                     "There are 100 squares in each plot.\n", 
-                    "In the first plot, each square represents roughly 900 addresses/households. (There are 89,871 total addresses in the data set).\n",
-                    "In the second plot, each square represents roughly 1,200 vehicles. (There are 118,907 total vehicles in the data set)."),
+                    "In the first plot, each square represents roughly 900 addresses/households (There are 89,871 total addresses in the data set).\n",
+                    "In the second plot, each square represents roughly 1,200 vehicles (There are 118,907 total vehicles in the data set)."),
                           theme=theme(plot.title=element_text(hjust=0.5),
                                       plot.caption = element_text(hjust = 0))
                   )
@@ -603,7 +603,7 @@ ggplot(data = trt_d_co,
   ylab("# vehicles / # households") +
   xlab("Median household income (thousands of $)") +
   theme_minimal() +
-  ggtitle("Richer areas have more vehicles") +
+  ggtitle("Areas with higher household incomes have more vehicles") +
   labs(caption = "Note: tract income is top-coded at $250,000") +
   theme(plot.caption = element_text(hjust = 0))
 ```
@@ -677,7 +677,7 @@ ggplot() +
     xlim = sf::st_bbox(dc_boundary)[c("xmin", "xmax")],
     ylim = sf::st_bbox(dc_boundary)[c("ymin", "ymax")]
   ) +
-  labs(title = "There are over 43,000 vehicles registered\nwithin a 10-minute walk of a metro station") +
+  labs(title = "More than 43,000 vehicles are registered\nwithin a 10-minute of a metro station") +
   theme_void() +
   theme(
     plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
@@ -685,6 +685,17 @@ ggplot() +
     legend.title = element_text(size = 10),
     legend.text = element_text(size = 9)
   )
+```
+
+```{r, eval=F, include=F, echo=F}
+metro_blob <- st_union(mto_buffer, by_feature = F)
+co_inside_blob <- co[st_within(co, metro_blob, sparse = FALSE), ]
+co_outside_blob <- co[!st_within(co, metro_blob, sparse = FALSE), ]
+round(mean(co_inside_blob$`Count of Vehicles`, na.rm=T), 2)
+round(mean(co_outside_blob$`Count of Vehicles`, na.rm=T), 2)
+
+quantile(co_inside_blob$`Count of Vehicles`, probs = c(.5, .75, .8, .9, .95), na.rm=T)
+quantile(co_outside_blob$`Count of Vehicles`, probs = c(.5, .75, .8, .9, .95), na.rm=T)
 ```
 
 
