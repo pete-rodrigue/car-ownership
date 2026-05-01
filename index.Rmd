@@ -677,7 +677,7 @@ ggplot() +
     xlim = sf::st_bbox(dc_boundary)[c("xmin", "xmax")],
     ylim = sf::st_bbox(dc_boundary)[c("ymin", "ymax")]
   ) +
-  labs(title = "More than 43,000 vehicles are registered\nwithin a 10-minute of a metro station") +
+  labs(title = "More than 43,000 vehicles are registered\nwithin a 10-minute walk of a metro station") +
   theme_void() +
   theme(
     plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
