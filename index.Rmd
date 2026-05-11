@@ -599,11 +599,77 @@ ggplot(data = trt_d_co,
        aes(x = med_hh_inc/1000, y = nv_hh)) +
   geom_point() +
   geom_smooth(method = "lm") +
-  geom_text(x = 50000, y = 80, label = lm_eqn(trt_d_co, x = "med_hh_inc", "nv_hh"), parse = TRUE) +
+  geom_text(x = 50, y = 80, label = lm_eqn(trt_d_co, x = "med_hh_inc", "nv_hh"), parse = TRUE) +
   ylab("# vehicles / # households") +
   xlab("Median household income (thousands of $)") +
   theme_minimal() +
   ggtitle("Areas with higher household incomes have more vehicles") +
+  labs(caption = "Note: tract income is top-coded at $250,000") +
+  theme(plot.caption = element_text(hjust = 0))
+```
+
+
+## Update May 11 2026!
+
+The chart above appeared in the original Greater Greater Washington piece, but it was confusing. I took the total number of vehicles in each census tract and divided by the number of households in that census tract, then multiplied that by 100. So say we had a census tract with 100 households. If the y-axis value for that census tract was "50" that could mean that there were 50 households in that tract with 1 vehicle, or 1 household with 50 vehicle. I also top-coded this variable at 100, which made it look even more like a percentage (rather than a ratio) which was additionally confusing. (There were some census tracts in which there were, for example, 110 vehicles and 100 households, so the y-axis value was 110).
+
+Below, I redo this so it's clearer. I take the number of households that own at least one vehicle in the DMV data, and divide by the total number of households in the Census data. That gives you a rough estimate of the share of vehicle-owning households by tract (and by extension, the share of vehicle-free households). Note that this is likely a significant underestimate of the share of vehicle-owning households. We know for a fact (from the American Community Survey) that there are census tracts in DC in which virtually all households have at least one vehicle. See here for example: https://onemap.cdc.gov/Portal/home/webmap/viewer.html?useExisting=1&layers=f82e556f2fca4df79aabaf6f15ed6830
+
+This is because the DMV data has some limitations. The data only includes residential registrations. It doesn't include people who live in DC but have a car registered out of state. It doesn't include people with fake tags, etc. 
+
+But the direction of the association (higher-income tracts have more vehicle ownership) is still almost certainly correct, despite these limitations. This is a strong association in the Consumer Expenditure Survey, for example: https://www.bts.gov/data-spotlight/transportation-cost-burden-falls-significantly-second-lowest-no-other-income-group 
+
+And lot of economic research finds that motor vehicles are "normal goods," meaning that demand for the item rises as income rises:
+
+* https://lindseyresearch.com/wp-content/uploads/2021/12/NHTSA-2021-0053-1575-Exhibit-41-McCarthy-1996.pdf 
+* https://media.rff.org/documents/WP_23-33.pdf
+* https://www.sciencedirect.com/science/article/pii/S0965856400000185
+
+```{r}
+trt_d_co <- 
+  sf::st_join(x = trt_d %>% sf::st_transform(4326), y = co) %>%
+  sf::st_drop_geometry() %>%
+  group_by(TRACT) %>%
+  summarize(
+            nv = sum(`Count of Vehicles`, na.rm=T),
+            n_hh_w_atleast_1_v = n(),
+            med_hh_inc = max(med_hh_inc, na.rm=T)
+            ) %>%
+  dplyr::left_join(y = trt %>% sf::st_drop_geometry(), by = "TRACT") %>%
+    mutate(
+          nv_hh = round(nv / num_hh*100),
+          nv_po = round(nv / pop_over_18*100),
+          n_hh_w_atleast_1_v_divided_by_n_hh = round(n_hh_w_atleast_1_v / num_hh, 2)
+          ) %>%
+  mutate(
+    nv_hh = ifelse(nv_hh > 100, 100, nv_hh),
+    nv_po = ifelse(nv_po > 100, 100, nv_po)
+  ) %>% 
+  filter(med_hh_inc != -Inf)
+
+
+# GET EQUATION AND R-SQUARED AS STRING
+# SOURCE: https://groups.google.com/forum/#!topic/ggplot2/1TgH-kG5XMA
+
+lm_eqn <- function(df, x, y){
+    m <- lm( formula(paste(y, " ~ ", x)), df);
+    eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+         list(a = format(unname(coef(m)[1]), digits = 2),
+              b = format(unname(coef(m)[2]), digits = 2),
+             r2 = format(summary(m)$r.squared, digits = 3)))
+    as.character(as.expression(eq));
+}
+
+ggplot(data = trt_d_co,
+       aes(x = med_hh_inc/1000, y = n_hh_w_atleast_1_v_divided_by_n_hh)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  # geom_text(x = 50, y = .60,
+  #           label = lm_eqn(trt_d_co, x = "med_hh_inc", "n_hh_w_atleast_1_v_divided_by_n_hh"), parse = TRUE) +
+  ylab("# HH with at least one vehicle, as a share of the # HH") +
+  xlab("Median household income (thousands of $)") +
+  theme_minimal() +
+  ggtitle("In areas with higher household incomes more households own vehicles") +
   labs(caption = "Note: tract income is top-coded at $250,000") +
   theme(plot.caption = element_text(hjust = 0))
 ```
