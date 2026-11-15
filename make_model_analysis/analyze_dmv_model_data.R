@@ -149,8 +149,24 @@ a / b
 
 
 
+dmv_clean |>
+  filter(stringr::str_detect(pattern = "TESLA", string = make_clean)) |>
+  group_by(year) |>
+  summarise(n = sum(n, na.rm=T)) |>
+  ungroup() |>
+  arrange(year) |>
+  mutate(pct_change = (n-lag(n)) / lag(n) * 100) |>
+  ggplot(aes(x=year, y=n)) +
+  geom_bar(stat="identity")
 
 
+
+
+
+
+write.csv(x = dmv_clean, 
+          file = "make_model_analysis/dmv_data_cleaned.csv", 
+          row.names = F)
 
 
 

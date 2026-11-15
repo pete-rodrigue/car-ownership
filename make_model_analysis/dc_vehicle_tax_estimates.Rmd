@@ -1,0 +1,347 @@
+---
+title: "DC vehicle taxes: a 5% value tax over $40k, and a length surcharge"
+output: html_document
+---
+
+```{r setup, message = FALSE}
+library(dplyr)
+library(readr)
+library(tidyr)
+library(stringr)
+library(purrr)
+options(scipen = 999, width = 110, pillar.sigfig = 6)
+
+dmv_file  <- "dmv_data_cleaned.csv"  # cleaned DMV new-registration data
+len_file  <- "vehicle_lengths.csv"   # lengths of nameplates longer than a Camry (built for this note)
+stock     <- 279262                  # DC household vehicles, ACS 2020-24 (B25046)
+
+# ---- Part 1: value tax settings -------------------------------------------
+rate      <- 0.05                    # value tax rate
+threshold <- 40000                   # value tax applies to value above this
+spread    <- 0.30                    # log-sd of prices within a brand
+
+# ---- Part 2: length surcharge settings (edit these, then re-knit) ----------
+fee_at_esv <- 300          # annual fee ($) for a vehicle as long as a 2025 Escalade ESV
+curve      <- 1            # 1 = fee rises linearly with length; 2 = quadratic
+fee_cap    <- fee_at_esv   # top fee ($) in the "capped" results; or type a dollar amount
+L_camry    <- 193.5        # fee starts above this length (in.): 2025 Toyota Camry
+L_esv      <- 227.0        # fee reaches fee_at_esv at this length (in.): 2025 Escalade ESV
+commercial_types <- c("Van", "Heavy-duty pickup")  # vehicle types exempted as "commercial"
+ext_share  <- 1/3          # share of lumped SUVs that are the long version (ESV, Expedition MAX, ...)
+```
+
+# Part 1. A 5% tax on vehicle value over $40,000
+
+## 1. Prices when new
+
+Kelley Blue Book average transaction prices by brand, October 2026. Brands not in the KBB table get rough guesses.
+
+```{r prices}
+atp <- c(ACURA = 50320, AUDI = 64403, BMW = 73149, BUICK = 37400, CADILLAC = 90101,
+         CHEVROLET = 51058, CHRYSLER = 49959, DODGE = 53475, FORD = 61565, GENESIS = 64316,
+         GMC = 65607, HONDA = 38198, HYUNDAI = 38320, INFINITI = 69865, JEEP = 53592,
+         KIA = 39260, `LAND ROVER` = 102826, LEXUS = 63899, LINCOLN = 78132, MAZDA = 37082,
+         MERCEDESBENZ = 71086, MINI = 41075, MITSUBISHI = 33579, NISSAN = 37578,
+         PORSCHE = 125270, RAM = 69850, SUBARU = 37429, TESLA = 54194, TOYOTA = 44168,
+         VOLKSWAGEN = 40185, VOLVO = 61588)
+guesses <- c(JAGUAR = 70000, `ALFA ROMEO` = 50000, MASERATI = 100000, POLESTAR = 60000,
+             LUCID = 90000, RIVIAN = 85000, FIAT = 30000, SMART = 25000, ASTONMARTIN = 250000,
+             FERRARI = 250000, BENTLEY = 250000, LAMBORGHINI = 250000, ROLLSROYCE = 250000,
+             `ROLLS ROYCE` = 250000, MCLAREN = 250000, MERCURY = 30000, PONTIAC = 30000,
+             SATURN = 30000, SAAB = 35000, OLDSMOBILE = 30000, HUMMER = 60000, SCION = 25000,
+             ISUZU = 35000, PLYMOUTH = 25000)
+price_new <- c(atp, guesses)
+
+# Industry average new price by model year (approximate), used to scale older cars back.
+# Anchors: KBB put the 2018 average near $36,000 and October 2026 at $51,109.
+atp_year <- c(`2015` = 33500, `2016` = 34500, `2017` = 35500, `2018` = 36500, `2019` = 37800,
+              `2020` = 40000, `2021` = 45000, `2022` = 48500, `2023` = 48500, `2024` = 48500,
+              `2025` = 49800, `2026` = 51109)
+```
+
+## 2. Which cars are still registered in DC
+
+The DMV file counts cars *first registered* in DC each year. Assuming a constant share stays registered each year, that share is 1 − (2025 registrations ÷ total cars).
+
+```{r stock}
+dmv <- read_csv(dmv_file, show_col_types = FALSE) |>
+  filter(weight_class %in% c("Class I", "Class II", "Class III"),
+         make_clean %in% names(price_new))
+
+inflow_2025 <- sum(dmv$n[dmv$year == 2025])
+retention   <- 1 - inflow_2025 / stock
+
+dmv <- dmv |> mutate(still_here = n * retention^(2025 - year))
+
+c(inflow_2025 = inflow_2025, retention = round(retention, 3),
+  modeled_stock = round(sum(dmv$still_here)))
+```
+
+## 3. Value today
+
+Depreciation follows Kelley Blue Book's average rates for years 1–5 (16%, 12%, 11%, 9%, 7%), then 7% a year after that.
+
+```{r value}
+dep_rates  <- c(0.16, 0.12, 0.11, 0.09, rep(0.07, 150))  # long enough for 1920s cars
+dep_factor <- c(1, cumprod(1 - dep_rates))   # share of value left at age 0, 1, 2, ...
+
+scale_to_year <- function(my) {
+  ifelse(my < 2015, 33500 / 51109 * 0.97^(2015 - my),
+         atp_year[as.character(pmin(pmax(my, 2015), 2026))] / 51109)
+}
+
+dmv <- dmv |>
+  mutate(age   = pmax(2025 - model_year, 0),
+         value = unname(price_new[make_clean]) * scale_to_year(model_year) * dep_factor[age + 1])
+```
+
+## 4. Tax per car
+
+Prices vary within a brand (a "Toyota" can be a $25k Corolla or a $75k Sequoia), so each brand-year's value is treated as the average of a lognormal distribution. The expected tax is then 5% of the expected amount above $40k.
+
+```{r tax}
+expected_excess <- function(mu, k = threshold, s = spread) {
+  d1 <- (log(mu / k) + s^2 / 2) / s
+  mu * pnorm(d1) - k * pnorm(d1 - s)
+}
+share_over <- function(mu, k = threshold, s = spread) pnorm((log(mu / k) + s^2 / 2) / s - s)
+
+dmv <- dmv |>
+  mutate(tax     = rate * expected_excess(value),
+         p_taxed = share_over(value))
+```
+
+## Results
+
+```{r results}
+total <- dmv |> summarise(cars          = sum(still_here),
+                          cars_taxed    = sum(still_here * p_taxed),
+                          revenue_M     = sum(still_here * tax) / 1e6,
+                          avg_tax_taxed = sum(still_here * tax) / sum(still_here * p_taxed))
+round(total, 1)
+
+dmv |>
+  mutate(age_group = cut(age, c(-1, 0, 2, 5, 9, Inf),
+                         labels = c("New", "1-2", "3-5", "6-9", "10+"))) |>
+  group_by(age_group) |>
+  summarise(cars       = round(sum(still_here)),
+            cars_taxed = round(sum(still_here * p_taxed)),
+            revenue_M  = round(sum(still_here * tax) / 1e6, 1))
+```
+
+## Sensitivity
+
+```{r sensitivity}
+run <- function(s = spread, scale_back = TRUE) {
+  v <- unname(price_new[dmv$make_clean]) * dep_factor[dmv$age + 1] *
+       (if (scale_back) scale_to_year(dmv$model_year) else 1)
+  ex <- if (s == 0) pmax(v - threshold, 0) else expected_excess(v, s = s)
+  round(sum(dmv$still_here * rate * ex) / 1e6, 1)
+}
+
+tibble(variant   = c("Brand averages only (no spread)", "Central (spread 0.3)",
+                     "Wider spread (0.4)", "Today's prices for all model years"),
+       revenue_M = c(run(s = 0), run(), run(s = 0.4), run(scale_back = FALSE)))
+```
+
+# Part 2. An annual length surcharge
+
+The surcharge is $0 for a vehicle no longer than a 2025 Toyota Camry (`r L_camry` in.). Above that it rises `r if (curve == 1) "in a straight line" else paste0("with the extra length raised to the power ", curve)`, reaching $`r fee_at_esv` at the length of a 2025 Cadillac Escalade ESV (`r L_esv` in.) and continuing upward beyond it. The "capped" results stop it at $`r fee_cap`. All of these settings live in the `setup` chunk at the top.
+
+## 1. The schedule
+
+```{r schedule}
+surcharge <- function(len, cap = Inf) {
+  pmin(fee_at_esv * (pmax(len - L_camry, 0) / (L_esv - L_camry))^curve, cap)
+}
+
+tribble(~vehicle,                           ~length_in,
+        "Toyota Camry (2025)",              193.5,
+        "Toyota Highlander (2020+)",        194.9,
+        "Ford Explorer (2020+)",            198.8,
+        "Toyota Sienna (2021+)",            203.7,
+        "Chevrolet Tahoe (2021+)",          210.7,
+        "Toyota Tacoma Double Cab (2024+)", 213.0,
+        "Chevrolet Suburban (2021+)",       225.7,
+        "Cadillac Escalade ESV (2021+)",    227.0,
+        "Ford F-150 SuperCrew, 5.5 ft box", 231.7,
+        "Ram ProMaster, 159 in. wheelbase", 236.2,
+        "Ford Transit, extended length",    263.9) |>
+  mutate(uncapped = round(surcharge(length_in)),
+         capped   = round(surcharge(length_in, cap = fee_cap)))
+```
+
+## 2. Vehicle lengths
+
+The DMV file has make, model and model year, but not trim, cab or wheelbase. `vehicle_lengths.csv` gives an overall length, one row per generation, for every nameplate longer than a Camry among those with five or more 2025 registrations (97% of vehicles), plus rarer big trucks, vans and SUVs. Anything not listed is treated as Camry-length or shorter. Two simplifications:
+
+* **Pickups and vans** get their most common body (crew cab with short bed; 148-in. Transit; 159-in. ProMaster). Their shortest and longest bodies feed the sensitivity check.
+* **Extended-length SUVs.** The DMV lumps some SUVs with their extended versions: Escalade ESV, Expedition MAX, Navigator L, Wagoneer L, Grand Cherokee L and the long-wheelbase Range Rover. `ext_share` sets how many are the long version.
+
+Each `pattern` is a regular expression for the DMV `make_model` field. It also catches the six-letter truncations found in older records ("CHEVROLET SUBURB").
+
+```{r lengths}
+lengths <- read_csv(len_file, show_col_types = FALSE)
+
+lk <- lengths |>
+  mutate(make_model = map(pattern, \(p) str_subset(unique(dmv$make_model), p))) |>
+  unnest(make_model)
+
+# Every pattern matches something, and no nameplate matches two different patterns
+stopifnot(all(lengths$pattern %in% lk$pattern),
+          !anyDuplicated(distinct(lk, pattern, make_model)$make_model))
+
+new25 <- dmv |> filter(year == 2025)
+
+# One row per DMV record x length row; `share` splits records between body lengths.
+# Vehicles in `exempt` types pay nothing.
+fee_rows <- function(data = new25, cap = Inf, body = "len", ext = ext_share, exempt = character(0)) {
+  sizes <- lk |>
+    mutate(share  = case_when(variant == "ext" ~ ext,
+                              variant == "std" ~ 1 - ext,
+                              .default = share),
+           length = coalesce(.data[[body]], len),
+           fee    = if_else(segment %in% exempt, 0, surcharge(length, cap))) |>
+    select(make_model, my_from, my_to, segment, verified, share, length, fee)
+  inner_join(data, sizes, by = join_by(make_model, between(model_year, my_from, my_to)),
+             relationship = "many-to-many")
+}
+```
+
+## 3. Revenue
+
+Revenue scales the average surcharge among 2025 new registrations up to all `r format(stock, big.mark = ",")` vehicles, assuming the fleet's length mix matches the 2025 registrants'.
+
+**Commercial vehicles.** The DMV file doesn't say which vehicles carry commercial plates, so the "commercial exempt" rows exempt commercial-type vehicles instead: the types listed in `commercial_types`. By default that is full-size vans (Transit, ProMaster, Express/Savana, E-Series, Sprinter, Metris, NV) and heavy-duty pickups (F-250/350/450, Ram 2500/3500). This exempts some personal vans and misses business-owned F-150s and Silverados. Most heavy trucks and buses are already out of the analysis: the DMV puts them in its "All Others" weight class, which both parts leave out.
+
+```{r len_results}
+summarise_fees <- function(r, data = new25) {
+  r |> summarise(pct_charged     = 100 * sum(n * share * (fee > 0)) / sum(data$n),
+                 fee_if_charged  = sum(n * share * fee) / sum(n * share * (fee > 0)),
+                 fee_per_car     = sum(n * share * fee) / sum(data$n),
+                 rev_2025_cars_M = sum(n * share * fee) / 1e6,
+                 rev_fleet_M     = fee_per_car * stock / 1e6)
+}
+
+res <- bind_rows(
+  "All vehicles, uncapped"      = summarise_fees(fee_rows()),
+  "All vehicles, capped"        = summarise_fees(fee_rows(cap = fee_cap)),
+  "Commercial exempt, uncapped" = summarise_fees(fee_rows(exempt = commercial_types)),
+  "Commercial exempt, capped"   = summarise_fees(fee_rows(cap = fee_cap, exempt = commercial_types)),
+  .id = "version")
+res |> mutate(across(where(is.numeric), \(x) round(x, 2)))
+```
+
+```{r payer_median, include = FALSE}
+wquantile <- function(x, w, p) {
+  o  <- order(x)
+  cw <- cumsum(w[o]) / sum(w)          # weighted share of payers at or below each fee
+  sapply(p, \(q) x[o][which(cw >= q)[1]])
+}
+
+r0 <- fee_rows() |> filter(fee > 0)
+payer_pct    <- wquantile(r0$fee, r0$n * r0$share, c(0.50, 0.75, 0.90))
+median_payer <- payer_pct[1]   # keeps the existing inline text working
+```
+
+About `r round(res$pct_charged[1])`% of vehicles are long enough to pay anything. 
+The median payer owes $`r round(payer_pct[1])` a year, the 75th percentile $`r round(payer_pct[2])`,
+the 90th percentile $`r round(payer_pct[3])`, and the average payer $`r round(res$fee_if_charged[1])`.
+Fleet-wide, the surcharge raises about **$`r round(res$rev_fleet_M[1], 1)` million a year uncapped, or $`r round(res$rev_fleet_M[2], 1)` million with a \$`r fee_cap` cap**. Exempting commercial-type vehicles brings that to \$`r round(res$rev_fleet_M[3], 1)` million uncapped, or \$`r round(res$rev_fleet_M[4], 1)` million capped.
+
+## Who pays
+
+Vehicles charged and revenue by type, scaled to the full fleet. `commercial` marks the types exempted in the "commercial exempt" rows.
+
+```{r len_segments}
+by_segment <- function(r) {
+  r |> group_by(segment) |>
+    summarise(cars_charged = sum(n * share * (fee > 0)) / sum(new25$n) * stock,
+              revenue_M    = sum(n * share * fee) / sum(new25$n) * stock / 1e6)
+}
+
+left_join(by_segment(fee_rows()),
+          by_segment(fee_rows(cap = fee_cap)) |> select(segment, revenue_capped_M = revenue_M),
+          by = "segment") |>
+  mutate(avg_fee_uncapped = 1e6 * revenue_M / cars_charged,
+         commercial       = segment %in% commercial_types) |>
+  arrange(desc(revenue_M)) |>
+  mutate(across(c(cars_charged, avg_fee_uncapped), round), across(starts_with("revenue"), \(x) round(x, 2)))
+```
+
+## Sensitivity
+
+Fleet revenue in $ millions.
+
+```{r len_sensitivity}
+run_len <- function(...) {
+  r <- fee_rows(...)
+  round(sum(r$n * r$share * r$fee) / sum(new25$n) * stock / 1e6, 2)
+}
+
+variants <- list("Central"                         = list(),
+                 "Pickups and vans: shortest body" = list(body = "len_short"),
+                 "Pickups and vans: longest body"  = list(body = "len_long"),
+                 "No extended-length SUVs"         = list(ext = 0),
+                 "Two-thirds extended-length SUVs" = list(ext = 2/3))
+
+imap(variants, \(args, name) tibble(
+  variant                    = name,
+  uncapped_M                 = do.call(run_len, args),
+  capped_M                   = do.call(run_len, c(args, cap = fee_cap)),
+  uncapped_comm_exempt_M     = do.call(run_len, c(args, list(exempt = commercial_types))),
+  capped_comm_exempt_M       = do.call(run_len, c(args, list(cap = fee_cap, exempt = commercial_types))))) |>
+  list_rbind()
+```
+
+## Is 2025 a typical year?
+
+Average surcharge per newly registered vehicle by registration year. Earlier files abbreviate more model names, so a few long vehicles go unmatched and older years read slightly low.
+
+```{r len_by_year}
+map(2019:2025, \(yr) {
+  d <- filter(dmv, year == yr)
+  tibble(year     = yr,
+         uncapped = sum(with(fee_rows(d), n * share * fee)) / sum(d$n),
+         capped   = sum(with(fee_rows(d, cap = fee_cap), n * share * fee)) / sum(d$n))
+}) |>
+  list_rbind() |>
+  mutate(across(c(uncapped, capped), \(x) round(x, 2)))
+```
+
+## Caveats
+
+* The estimate is static: it ignores any shift toward shorter vehicles.
+* "Commercial" is a proxy based on vehicle type, not registration type (see section 7).
+* Scaling 2025 registrations up to the fleet assumes the fleet's length mix matches recent registrants'. The table above suggests that mix has been stable since 2019.
+
+# Checks
+
+```{r checks}
+# 1. The lognormal formula matches a simulation
+set.seed(1)
+mu  <- c(30000, 50000, 90000)
+sim <- sapply(mu, \(m) mean(pmax(rlnorm(1e6, log(m) - spread^2 / 2, spread) - threshold, 0)))
+round(rbind(formula = expected_excess(mu), simulation = sim))
+
+# 2. Honda and BMW motorcycles are valued as if they were cars in Part 1
+bikes <- str_detect(coalesce(dmv$make_model, ""),
+  "^BMW (R ?[0-9]|R NINE|K ?[0-9]|F ?[0-9]|S ?1000|C ?[0-9]|CE ?0|G ?[0-9]|M 1000)|^HONDA (CB|CMX|CRF|CTX|GL1|GROM|NC7|NC750|NCH|NCW|NPS|NVA|PCX|VT|XR|Z125|ADV|C125|CH|CN|CT125|WW|XL7)")
+c(bikes_still_registered = round(sum(dmv$still_here[bikes])),
+  tax_M = round(sum(dmv$still_here[bikes] * dmv$tax[bikes]) / 1e6, 2),
+  pct_of_revenue = round(100 * sum(dmv$still_here[bikes] * dmv$tax[bikes]) / sum(dmv$still_here * dmv$tax), 1))
+
+# 3. Share of the 2025 length revenue that rests on lengths checked against
+#    manufacturer, dealer or KBB spec pages ("web") vs. the autoevolution dataset or approximations
+r <- fee_rows()
+r |> group_by(verified) |>
+  summarise(pct_of_uncapped_revenue = round(100 * sum(n * share * fee) / sum(r$n * r$share * r$fee), 1))
+```
+
+# Sources
+
+* Prices: [KBB average transaction prices, October 2026](https://www.coxautoinc.com/wp-content/uploads/2026/11/October-2026-Kelley-Blue-Book-Average-Transaction-Price-tables.pdf); [KBB depreciation rates](https://www.kbb.com/car-depreciation).
+* Anchor lengths: [2025 Camry, 193.5 in. (KBB)](https://www.kbb.com/toyota/camry/2025/specs); [2025 Escalade ESV, 227 in. (KBB)](https://www.kbb.com/cadillac/escalade-esv/2025/specs).
+* Main pickups and vans: [Ford F-150 spec sheet](https://media.ford.com/content/dam/fordmedia/North%20America/US/product/2024/f150/2024%20Ford%20F-150%20Tech%20Specs.pdf); [Ford Transit spec sheet](https://www.fromtheroad.ford.com/content/dam/fordmediasite/us/en/library/2025/specs/2025%20Ford%20Transit%20Technical%20Specifications.pdf); [Chevrolet Express](https://chevrolet.com/commercial/express/vans); [Ram ProMaster (KBB)](https://www.kbb.com/ram/promaster/2020/specs/); [Silverado (GM Authority)](https://gmauthority.com/blog/2026/10/2027-chevy-silverado-1500-vs-2026-silverado-1500-exterior-dimensions-compared/); [Ram 1500](https://www.glendaledodgecalifornia.com/research-ram-1500-cabs-boxes.html); [Tundra](https://pickuptrucktalk.com/2021/10/is-the-2022-toyota-tundra-smaller-a-spec-by-spec-comparison/); [Sprinter](https://www.mercedesbenzofwarwick.com/2024-mercedes-benz-sprinter-dimensions/); [E-Series](https://vandimensions.com/database/ford/e-series-2008).
+* Large SUVs and minivans: [Tahoe and Suburban](https://www.automotive-fleet.com/news/chevrolet-refreshes-2021-tahoe-and-suburban-suvs); [Escalade generations (GM Authority)](https://gmauthority.com/blog/gm/cadillac/escalade/escalade-esv/); [Yukon](https://www.truedelta.com/GMC-Yukon/specs-103-2021); [Expedition spec sheet](https://www.fromtheroad.ford.com/content/dam/fordmediasite/us/en/library/2025/specs/2025-Ford-Expedition-Technical-Specs.pdf); [minivans (KBB)](https://www.kbb.com/compare-cars/results/van-minivan).
+* Other lengths: the [autoevolution specs dataset](https://github.com/ilyasozkurt/automobile-models-and-specs) where it has the U.S. model; the rest are marked "approx" in the CSV.

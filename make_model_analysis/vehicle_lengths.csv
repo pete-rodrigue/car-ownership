@@ -1,0 +1,334 @@
+pattern,my_from,my_to,variant,share,len,len_short,len_long,segment,verified,note
+^FORD (F150|F150 HERITAGE|F150 LIGHTNING)$,2021,2030,,1,231.7,209.1,243.5,Full-size pickup,web,SuperCrew 5.5 ft box
+^FORD (F150|F150 HERITAGE|F150 LIGHTNING)$,2015,2020,,1,231.9,209.3,243.7,Full-size pickup,web,SuperCrew 5.5 ft box
+^FORD (F150|F150 HERITAGE|F150 LIGHTNING)$,2009,2014,,1,231.9,,243.7,Full-size pickup,approx,SuperCrew 5.5 ft box
+^FORD (F150|F150 HERITAGE|F150 LIGHTNING)$,2004,2008,,1,223.8,,,Full-size pickup,approx,SuperCrew 5.5 ft box
+^FORD (F150|F150 HERITAGE|F150 LIGHTNING)$,1900,2003,,1,220.8,,,Full-size pickup,approx,SuperCab 6.5 ft box
+^(CHEVROLET (SILVERADO|SILVERADO LD|SILVERADO LTD|SILVER)|GMC (SIERRA|NEW SIERRA|SIERRA LIMITED|NEW SI))$,2019,2030,,1,231.9,210.9,241.4,Full-size pickup,web,Crew Cab short bed
+^(CHEVROLET (SILVERADO|SILVERADO LD|SILVERADO LTD|SILVER)|GMC (SIERRA|NEW SIERRA|SIERRA LIMITED|NEW SI))$,2014,2018,,1,230.0,205.6,239.6,Full-size pickup,autoevolution,Crew Cab short bed
+^(CHEVROLET (SILVERADO|SILVERADO LD|SILVERADO LTD|SILVER)|GMC (SIERRA|NEW SIERRA|SIERRA LIMITED|NEW SI))$,2007,2013,,1,230.0,205.6,,Full-size pickup,autoevolution,Crew/Extended Cab short bed
+^(CHEVROLET (SILVERADO|SILVERADO LD|SILVERADO LTD|SILVER)|GMC (SIERRA|NEW SIERRA|SIERRA LIMITED|NEW SI))$,1900,2006,,1,227.6,,,Full-size pickup,approx,Extended Cab short bed
+^(RAM 1500|DODGE RAM 1500|DODGE RAM 15)$,2019,2030,,1,232.9,228.9,241.8,Full-size pickup,web,"Crew Cab 5'7"" box"
+^(RAM 1500|DODGE RAM 1500|DODGE RAM 15)$,2009,2018,,1,229.0,209.0,238.8,Full-size pickup,autoevolution,"Crew Cab 5'7"" box"
+^(RAM 1500|DODGE RAM 1500|DODGE RAM 15)$,1900,2008,,1,227.7,,,Full-size pickup,approx,"Quad Cab 6'3"" box"
+^RAM 1500 CLASSIC$,2019,2030,,1,229.0,209.0,238.8,Full-size pickup,autoevolution,previous-generation body
+^TOYOTA (TUNDRA)$,2022,2030,,1,233.6,233.6,245.6,Full-size pickup,web,CrewMax 5.5 ft / Double Cab 6.5 ft
+^TOYOTA (TUNDRA)$,2007,2021,,1,228.9,228.9,247.8,Full-size pickup,web,CrewMax 5.5 ft / Double Cab 6.5 ft
+^TOYOTA (TUNDRA)$,1900,2006,,1,217.5,,,Full-size pickup,approx,Access Cab
+^NISSAN (TITAN|TITAN XD)$,2016,2030,,1,228.1,,,Full-size pickup,autoevolution,Crew Cab
+^NISSAN (TITAN|TITAN XD)$,1900,2015,,1,224.2,,,Full-size pickup,autoevolution,Crew Cab
+^FORD (F250|F350|F450)$,2017,2030,,1,250.0,238.2,266.2,Heavy-duty pickup,web,Super Duty Crew Cab 6.75 ft box
+^FORD (F250|F350|F450)$,1900,2016,,1,246.8,,,Heavy-duty pickup,approx,Super Duty Crew Cab 6.75 ft box
+^(DODGE|RAM) (RAM 2500|RAM 3500|RAM 25|RAM 35|2500|3500)$,1900,2030,,1,237.9,,,Heavy-duty pickup,approx,heavy-duty crew cab
+^CHEVROLET (AVALANCHE|AVALAN)$,2002,2013,,1,221.3,,,Full-size pickup,autoevolution,
+^CADILLAC (ESCALADE EXT|EXT)$,2002,2013,,1,221.3,,,Full-size pickup,approx,Escalade EXT pickup
+^(CHEVROLET|GMC) (GMT400|GMT40)$,1900,2000,,1,212.6,,,Full-size pickup,approx,"1988-98 C/K, regular cab long bed"
+^LINCOLN (MARK LT|MARK L)$,1900,2030,,1,223.8,,,Full-size pickup,approx,F-150 SuperCrew based
+^TOYOTA (TACOMA)$,2024,2030,,1,213.0,213.0,226.2,Midsize pickup,web,Double Cab 5 ft bed
+^TOYOTA (TACOMA)$,2016,2023,,1,212.3,212.3,225.5,Midsize pickup,web,Double Cab 5 ft bed
+^TOYOTA (TACOMA)$,2005,2015,,1,208.1,208.1,221.3,Midsize pickup,autoevolution,Double Cab 5 ft bed
+^TOYOTA (TACOMA)$,1900,2004,,1,202.9,,,Midsize pickup,approx,Xtracab
+^CHEVROLET (COLORADO|COLORA)$,2023,2030,,1,213.0,,,Midsize pickup,web,Crew Cab
+^CHEVROLET (COLORADO|COLORA)$,2015,2022,,1,212.7,,224.9,Midsize pickup,web,Crew Cab short box
+^CHEVROLET (COLORADO|COLORA)$,1900,2012,,1,207.1,,,Midsize pickup,autoevolution,Crew/Extended Cab
+^GMC (CANYON)$,2023,2030,,1,213.2,,,Midsize pickup,web,Crew Cab
+^GMC (CANYON)$,2015,2022,,1,212.4,,224.6,Midsize pickup,autoevolution,Crew Cab short box
+^GMC (CANYON)$,1900,2012,,1,207.1,,,Midsize pickup,autoevolution,Crew/Extended Cab
+^FORD (RANGER)$,2024,2030,,1,210.6,,,Midsize pickup,web,SuperCrew
+^FORD (RANGER)$,2019,2023,,1,210.8,,,Midsize pickup,web,SuperCrew
+^FORD (RANGER)$,1900,2012,,0.5,202.7,,,Midsize pickup,autoevolution,"SuperCab; assumes half were Regular Cabs (189 in., no charge)"
+^NISSAN (FRONTIER|FRONTI)$,2022,2030,,1,210.2,,224.1,Midsize pickup,web,Crew Cab short bed
+^NISSAN (FRONTIER|FRONTI)$,2005,2021,,1,205.5,,,Midsize pickup,autoevolution,
+^HONDA (RIDGELINE|RIDGEL)$,2017,2030,,1,210.2,,,Midsize pickup,web,
+^HONDA (RIDGELINE|RIDGEL)$,2006,2014,,1,206.8,,,Midsize pickup,approx,
+^JEEP (GLADIATOR|GLADIA)$,2020,2030,,1,218.0,,,Midsize pickup,web,
+^RIVIAN (R1T)$,2022,2030,,1,217.1,,,Midsize pickup,web,
+^FORD (MAVERICK|MAVERI)$,2022,2030,,1,199.7,,,Midsize pickup,approx,
+^HYUNDAI (SANTA CRUZ)$,2022,2030,,1,195.7,,,Midsize pickup,approx,
+^FORD (EXPLORER SPORT TRAC)$,2007,2010,,1,210.2,,,Midsize pickup,autoevolution,
+^FORD (EXPLORER SPORT TRAC)$,1900,2006,,1,205.9,,,Midsize pickup,autoevolution,
+^DODGE (DAKOTA)$,2005,2011,,1,218.8,,,Midsize pickup,approx,Crew Cab
+^DODGE (DAKOTA)$,1900,2004,,1,214.8,,,Midsize pickup,approx,Club Cab
+^FORD (TRANSIT)$,2015,2030,,1,235.5,219.9,263.9,Van,web,148 in. wheelbase (short 130 in.; long 148 in. extended)
+^FORD (ECONOLINE|ECONOL)$,2015,2030,,1,241.1,241.1,261.1,Van,web,"E-Series cutaway chassis, 138 in. WB (body extra)"
+^FORD (ECONOLINE|ECONOL)$,2008,2014,,1,216.7,216.7,236.7,Van,web,regular (long: extended)
+^FORD (ECONOLINE|ECONOL)$,1900,2007,,1,211.9,211.9,231.9,Van,web,regular (long: extended)
+^(CHEVROLET (EXPRESS G1500|EXPRESS G2500|EXPRESS G3500|EXPRESS|EXPRES)|GMC SAVANA)$,1900,2030,,1,224.1,224.1,244.1,Van,web,135 in. wheelbase (long: 155 in.)
+^CHEVROLET (EXPRESS G4500|EXPRESS CUTAWAY)$,1900,2030,,1,244.1,,,Van,approx,cutaway
+^RAM PROMASTER 1500$,2014,2030,,1,213.2,195.4,213.2,Van,web,136 in. wheelbase (short 118 in.)
+^RAM (PROMASTER 2500|PROMAS)$,2014,2030,,1,236.2,213.2,236.2,Van,web,159 in. wheelbase (short 136 in.)
+^RAM PROMASTER 3500$,2014,2030,,1,236.2,213.2,250.6,Van,web,159 in. wheelbase (long 159 in. EXT)
+^(MERCEDESBENZ|DODGE) (SPRINTER|SPRINT)$,1900,2030,,1,233.5,233.5,290.0,Van,web,144 in. wheelbase (long 170 in. EXT)
+^MERCEDESBENZ (METRIS)$,2016,2030,,1,202.4,,,Van,approx,
+^NISSAN NV$,2012,2021,,1,240.6,,,Van,approx,NV cargo van
+^CHEVROLET (TAHOE)$,2021,2030,,1,210.7,,,Full-size SUV,web,
+^CHEVROLET (TAHOE)$,2015,2020,,1,204.0,,,Full-size SUV,web,
+^CHEVROLET (TAHOE)$,2007,2014,,1,202.0,,,Full-size SUV,autoevolution,
+^CHEVROLET (TAHOE)$,1900,2006,,1,198.9,,,Full-size SUV,approx,
+^CHEVROLET (SUBURBAN|SUBURA|SUBURB)$,2021,2030,,1,225.7,,,Full-size SUV,web,
+^CHEVROLET (SUBURBAN|SUBURA|SUBURB)$,2015,2020,,1,224.4,,,Full-size SUV,web,
+^CHEVROLET (SUBURBAN|SUBURA|SUBURB)$,2007,2014,,1,222.4,,,Full-size SUV,autoevolution,
+^CHEVROLET (SUBURBAN|SUBURA|SUBURB)$,1900,2006,,1,219.3,,,Full-size SUV,autoevolution,
+^GMC (YUKON|YUKON DENALI)$,2021,2030,,1,210.0,,,Full-size SUV,web,
+^GMC (YUKON|YUKON DENALI)$,2015,2020,,1,203.9,,,Full-size SUV,web,
+^GMC (YUKON|YUKON DENALI)$,2007,2014,,1,202.0,,,Full-size SUV,autoevolution,
+^GMC (YUKON|YUKON DENALI)$,1900,2006,,1,198.8,,,Full-size SUV,autoevolution,
+^GMC (YUKON XL|SUBURBAN|SUBURB)$,2021,2030,,1,225.2,,,Full-size SUV,web,
+^GMC (YUKON XL|SUBURBAN|SUBURB)$,2015,2020,,1,224.3,,,Full-size SUV,web,
+^GMC (YUKON XL|SUBURBAN|SUBURB)$,2007,2014,,1,222.4,,,Full-size SUV,approx,same body as Suburban
+^GMC (YUKON XL|SUBURBAN|SUBURB)$,1900,2006,,1,219.3,,,Full-size SUV,approx,same body as Suburban
+^CADILLAC (ESCALADE|ESCALA)$,2021,2030,std,,211.9,,,Full-size SUV,web,standard
+^CADILLAC (ESCALADE|ESCALA)$,2021,2030,ext,,227.0,,,Full-size SUV,web,ESV
+^CADILLAC (ESCALADE|ESCALA)$,2015,2020,std,,203.9,,,Full-size SUV,web,standard
+^CADILLAC (ESCALADE|ESCALA)$,2015,2020,ext,,224.3,,,Full-size SUV,web,ESV
+^CADILLAC (ESCALADE|ESCALA)$,2007,2014,std,,202.5,,,Full-size SUV,web,standard
+^CADILLAC (ESCALADE|ESCALA)$,2007,2014,ext,,222.9,,,Full-size SUV,web,ESV
+^CADILLAC (ESCALADE|ESCALA)$,2003,2006,std,,198.9,,,Full-size SUV,web,standard
+^CADILLAC (ESCALADE|ESCALA)$,2003,2006,ext,,221.4,,,Full-size SUV,web,ESV
+^CADILLAC (ESCALADE|ESCALA)$,1900,2002,,1,198.9,,,Full-size SUV,approx,before the ESV
+^CADILLAC (ESCALADE ESV|ESV)$,2021,2030,,1,227.0,,,Full-size SUV,web,
+^CADILLAC (ESCALADE ESV|ESV)$,2015,2020,,1,224.3,,,Full-size SUV,web,
+^CADILLAC (ESCALADE ESV|ESV)$,2007,2014,,1,222.9,,,Full-size SUV,web,
+^CADILLAC (ESCALADE ESV|ESV)$,1900,2006,,1,221.4,,,Full-size SUV,web,
+^FORD (EXPEDITION|EXPEDI)$,2018,2030,std,,210.0,,,Full-size SUV,web,standard
+^FORD (EXPEDITION|EXPEDI)$,2018,2030,ext,,221.9,,,Full-size SUV,web,Expedition MAX
+^FORD (EXPEDITION|EXPEDI)$,2007,2017,std,,206.0,,,Full-size SUV,autoevolution,standard
+^FORD (EXPEDITION|EXPEDI)$,2007,2017,ext,,220.8,,,Full-size SUV,autoevolution,Expedition EL
+^FORD (EXPEDITION|EXPEDI)$,1900,2006,,1,205.8,,,Full-size SUV,autoevolution,
+^LINCOLN (NAVIGATOR|NAV|NAVIGA)$,2018,2030,std,,210.0,,,Full-size SUV,web,standard
+^LINCOLN (NAVIGATOR|NAV|NAVIGA)$,2018,2030,ext,,221.9,,,Full-size SUV,web,Navigator L
+^LINCOLN (NAVIGATOR|NAV|NAVIGA)$,2007,2017,std,,208.3,,,Full-size SUV,approx,standard
+^LINCOLN (NAVIGATOR|NAV|NAVIGA)$,2007,2017,ext,,223.3,,,Full-size SUV,approx,Navigator L
+^LINCOLN (NAVIGATOR|NAV|NAVIGA)$,1900,2006,,1,205.0,,,Full-size SUV,approx,
+^NISSAN (ARMADA|ARM)$,2017,2030,,1,208.9,,,Full-size SUV,autoevolution,
+^NISSAN (ARMADA|ARM)$,1900,2016,,1,207.7,,,Full-size SUV,autoevolution,
+^INFINITI (QX80|QX56)$,2011,2030,,1,208.9,,,Full-size SUV,autoevolution,
+^INFINITI (QX80|QX56)$,1900,2010,,1,206.9,,,Full-size SUV,autoevolution,
+^TOYOTA (SEQUOIA|SEQ|SEQUOI)$,2023,2030,,1,208.1,,,Full-size SUV,web,
+^TOYOTA (SEQUOIA|SEQ|SEQUOI)$,2008,2022,,1,205.1,,,Full-size SUV,autoevolution,
+^TOYOTA (SEQUOIA|SEQ|SEQUOI)$,1900,2007,,1,203.9,,,Full-size SUV,autoevolution,
+^JEEP (WAGONEER|GRAND WAGONEER|WAGONE)$,2022,2030,std,,214.7,,,Full-size SUV,approx,standard
+^JEEP (WAGONEER|GRAND WAGONEER|WAGONE)$,2022,2030,ext,,226.7,,,Full-size SUV,approx,Wagoneer L
+^LEXUS (LX)$,2022,2030,,1,200.6,,,Full-size SUV,web,
+^LEXUS (LX)$,2016,2021,,1,199.4,,,Full-size SUV,autoevolution,
+^LEXUS (LX)$,2008,2015,,1,196.5,,,Full-size SUV,autoevolution,
+^TOYOTA (SIENNA|SIE|SIEN)$,2021,2030,,1,203.7,,,Minivan,web,
+^TOYOTA (SIENNA|SIE|SIEN)$,2015,2020,,1,200.6,,,Minivan,autoevolution,
+^TOYOTA (SIENNA|SIE|SIEN)$,2011,2014,,1,200.2,,,Minivan,autoevolution,
+^TOYOTA (SIENNA|SIE|SIEN)$,2004,2010,,1,201.0,,,Minivan,autoevolution,
+^HONDA (ODYSSEY|ODY|ODYSSE)$,2021,2030,,1,205.2,,,Minivan,web,
+^HONDA (ODYSSEY|ODY|ODYSSE)$,2018,2020,,1,203.2,,,Minivan,web,
+^HONDA (ODYSSEY|ODY|ODYSSE)$,2011,2017,,1,202.9,,,Minivan,autoevolution,
+^HONDA (ODYSSEY|ODY|ODYSSE)$,1999,2010,,1,201.0,,,Minivan,autoevolution,
+^CHRYSLER (PACIFICA|PACIFI)$,2021,2030,,1,204.3,,,Minivan,web,
+^CHRYSLER (PACIFICA|PACIFI)$,2017,2020,,1,203.8,,,Minivan,web,
+^CHRYSLER (PACIFICA|PACIFI)$,2004,2008,,1,198.9,,,Other SUV/crossover,autoevolution,first-generation crossover
+^CHRYSLER (VOYAGER|VOYAGE)$,2020,2030,,1,203.8,,,Minivan,web,
+^DODGE (GRAND CARAVAN|GR CAR|GRAND)$,2008,2020,,1,202.8,,,Minivan,web,
+^DODGE (GRAND CARAVAN|GR CAR|GRAND)$,1900,2007,,1,200.6,,,Minivan,web,
+^CHRYSLER (TOWN \& COUNTRY|TOWN \&|TWC)$,2008,2016,,1,202.8,,,Minivan,autoevolution,
+^CHRYSLER (TOWN \& COUNTRY|TOWN \&|TWC)$,1900,2007,,1,200.6,,,Minivan,autoevolution,
+^KIA (CARNIVAL|CARNIV)$,2022,2030,,1,203.0,,,Minivan,web,
+^KIA (SEDONA)$,2015,2021,,1,201.4,,,Minivan,approx,
+^KIA (SEDONA)$,2006,2014,,1,202.0,,,Minivan,approx,
+^NISSAN (QUEST)$,2011,2017,,1,200.8,,,Minivan,autoevolution,
+^NISSAN (QUEST)$,2004,2010,,1,204.1,,,Minivan,autoevolution,
+^CHEVROLET (UPLANDER|UPLAND)$,2005,2009,,1,204.4,,,Minivan,autoevolution,
+^FORD (WINDSTAR|FREESTAR|FREEST|WINDST)$,1999,2007,,1,201.0,,,Minivan,autoevolution,
+^VOLKSWAGEN (ROUTAN)$,2009,2014,,1,202.5,,,Minivan,approx,
+^FORD (EXPLORER|EXPLOR)$,2020,2030,,1,198.8,,,Other SUV/crossover,web,
+^FORD (EXPLORER|EXPLOR)$,2016,2019,,1,198.7,,,Other SUV/crossover,autoevolution,
+^FORD (EXPLORER|EXPLOR)$,2011,2015,,1,197.1,,,Other SUV/crossover,autoevolution,
+^HONDA (PILOT|PIL)$,2023,2030,,1,199.9,,,Other SUV/crossover,web,
+^HONDA (PILOT|PIL)$,2019,2022,,1,196.5,,,Other SUV/crossover,approx,
+^HONDA (PILOT|PIL)$,2016,2018,,1,194.5,,,Other SUV/crossover,approx,
+^CHEVROLET (TRAVERSE|TRAVER)$,2024,2030,,1,204.5,,,Other SUV/crossover,web,
+^CHEVROLET (TRAVERSE|TRAVER)$,2018,2023,,1,204.3,,,Other SUV/crossover,autoevolution,
+^CHEVROLET (TRAVERSE|TRAVER)$,2013,2017,,1,203.7,,,Other SUV/crossover,autoevolution,
+^CHEVROLET (TRAVERSE|TRAVER)$,2009,2012,,1,205.0,,,Other SUV/crossover,autoevolution,
+^TOYOTA (GRAND HIGHLANDER)$,2024,2030,,1,201.4,,,Other SUV/crossover,web,
+^VOLKSWAGEN (ATLAS)$,2021,2030,,1,200.7,,,Other SUV/crossover,web,
+^VOLKSWAGEN (ATLAS)$,2018,2020,,1,198.3,,,Other SUV/crossover,approx,
+^VOLKSWAGEN (ATLAS CROSS SPORT)$,2020,2030,,1,195.5,,,Other SUV/crossover,approx,
+^KIA (TELLURIDE|TELLU|TELLUR)$,2020,2030,,1,196.9,,,Other SUV/crossover,web,
+^HYUNDAI (PALISADE|PALISA)$,2026,2030,,1,199.2,,,Other SUV/crossover,approx,
+^HYUNDAI (PALISADE|PALISA)$,2020,2025,,1,196.1,,,Other SUV/crossover,approx,
+^HYUNDAI (IONIQ 9)$,2026,2030,,1,199.2,,,Other SUV/crossover,approx,
+^KIA (EV9)$,2024,2030,,1,197.4,,,Other SUV/crossover,approx,
+^SUBARU (ASCENT)$,2019,2030,,1,196.8,,,Other SUV/crossover,approx,
+^MAZDA (CX9)$,2016,2023,,1,199.4,,,Other SUV/crossover,approx,
+^MAZDA (CX9)$,2007,2015,,1,200.4,,,Other SUV/crossover,approx,
+^MAZDA (CX90)$,2024,2030,,1,201.6,,,Other SUV/crossover,web,
+^MAZDA (CX70)$,2025,2030,,1,198.8,,,Other SUV/crossover,approx,
+^DODGE (DURANGO|DURANG)$,2011,2030,,1,200.8,,,Other SUV/crossover,autoevolution,
+^DODGE (DURANGO|DURANG)$,2004,2009,,1,200.8,,,Other SUV/crossover,autoevolution,
+^JEEP (GRAND CHEROKEE)$,2021,2030,std,,193.5,,,Other SUV/crossover,web,standard
+^JEEP (GRAND CHEROKEE)$,2021,2030,ext,,204.9,,,Other SUV/crossover,web,Grand Cherokee L
+^ACURA (MDX)$,2022,2030,,1,198.4,,,Other SUV/crossover,web,
+^ACURA (MDX)$,2014,2021,,1,196.2,,,Other SUV/crossover,autoevolution,
+^INFINITI (QX60|JX35)$,2022,2030,,1,198.2,,,Other SUV/crossover,autoevolution,
+^INFINITI (QX60|JX35)$,2013,2021,,1,196.4,,,Other SUV/crossover,autoevolution,
+^NISSAN (PATHFINDER|PATHFI)$,2022,2030,,1,197.7,,,Other SUV/crossover,web,
+^NISSAN (PATHFINDER|PATHFI)$,2013,2021,,1,197.2,,,Other SUV/crossover,autoevolution,
+^LEXUS (TX)$,2024,2030,,1,203.0,,,Other SUV/crossover,approx,
+^LEXUS (GX)$,2024,2030,,1,197.0,,,Other SUV/crossover,web,
+^MERCEDESBENZ (GLS)$,2020,2030,,1,205.0,,,Other SUV/crossover,web,
+^MERCEDESBENZ (GLS)$,1900,2019,,1,202.0,,,Other SUV/crossover,autoevolution,
+^MERCEDESBENZ (GL|GL4|GL450|GL550)$,2013,2016,,1,201.6,,,Other SUV/crossover,approx,
+^MERCEDESBENZ (GL|GL4|GL450|GL550)$,1900,2012,,1,200.6,,,Other SUV/crossover,approx,
+^BMW (X7)$,2023,2030,,1,203.3,,,Other SUV/crossover,web,
+^BMW (X7)$,2019,2022,,1,202.8,,,Other SUV/crossover,web,
+^LAND ROVER (RANGE ROVER)$,2022,2030,std,,198.9,,,Other SUV/crossover,approx,standard
+^LAND ROVER (RANGE ROVER)$,2022,2030,ext,,206.8,,,Other SUV/crossover,approx,long wheelbase
+^LAND ROVER (RANGE ROVER)$,2013,2021,std,,196.9,,,Other SUV/crossover,approx,standard
+^LAND ROVER (RANGE ROVER)$,2013,2021,ext,,204.7,,,Other SUV/crossover,approx,long wheelbase
+^AUDI (Q7|SQ7)$,2020,2030,,1,199.6,,,Other SUV/crossover,approx,
+^AUDI (Q7|SQ7)$,2017,2019,,1,198.9,,,Other SUV/crossover,autoevolution,
+^AUDI (Q7|SQ7)$,2007,2015,,1,200.2,,,Other SUV/crossover,autoevolution,
+^AUDI (Q8|SQ8|RS Q8)$,2019,2030,,1,196.6,,,Other SUV/crossover,approx,
+^GMC (ACADIA)$,2024,2030,,1,204.4,,,Other SUV/crossover,approx,
+^GMC (ACADIA)$,2017,2023,,1,193.6,,,Other SUV/crossover,approx,
+^GMC (ACADIA)$,2007,2016,,1,201.1,,,Other SUV/crossover,autoevolution,
+^GMC (ACADIA LIMITED)$,2017,2017,,1,201.1,,,Other SUV/crossover,autoevolution,previous-generation body
+^BUICK (ENCLAVE|ENCLAV)$,2018,2030,,1,204.3,,,Other SUV/crossover,approx,
+^BUICK (ENCLAVE|ENCLAV)$,2008,2017,,1,201.8,,,Other SUV/crossover,autoevolution,
+^CADILLAC (XT6)$,2020,2030,,1,198.8,,,Other SUV/crossover,approx,
+^CADILLAC (LYRIQ)$,2023,2030,,1,196.7,,,Other SUV/crossover,approx,
+^LINCOLN (AVIATOR|AVI|AVIATO)$,2020,2030,,1,199.3,,,Other SUV/crossover,approx,
+^LINCOLN (MKT)$,2010,2019,,1,207.6,,,Other SUV/crossover,approx,
+^FORD (FLEX)$,2009,2019,,1,201.8,,,Other SUV/crossover,autoevolution,
+^FORD (FREESTYLE|TAURUS X)$,2005,2009,,1,200.0,,,Other SUV/crossover,autoevolution,
+^HONDA (CROSSTOUR|ACCORD CROSSTOUR|CROSST)$,2010,2015,,1,196.8,,,Other SUV/crossover,approx,
+^TESLA (MODEL X|X)$,2016,2030,,1,198.3,,,Other SUV/crossover,approx,
+^RIVIAN (R1S)$,2022,2030,,1,200.8,,,Other SUV/crossover,approx,
+^VOLVO (EX90)$,2025,2030,,1,198.4,,,Other SUV/crossover,approx,
+^MERCEDESBENZ (R|R35|R350)$,2006,2013,,1,203.0,,,Other SUV/crossover,approx,
+^MERCEDESBENZ (EQS SUV)$,2023,2030,,1,201.8,,,Other SUV/crossover,approx,
+^LAND ROVER (DEFENDER|DEF|DEFEN|DEFEND)$,2020,2030,,1,197.6,,,Other SUV/crossover,approx,"Defender 110, incl. spare wheel"
+^LAND ROVER (DEF130)$,2023,2030,,1,211.0,,,Other SUV/crossover,approx,Defender 130
+^LAND ROVER (DISCOVERY|DISCOV)$,2017,2030,,1,195.1,,,Other SUV/crossover,approx,
+^LAMBORGHINI (URUS)$,2019,2030,,1,201.3,,,Other SUV/crossover,approx,
+^BENTLEY (BENTAYGA|BENTAY)$,2016,2030,,1,202.4,,,Other SUV/crossover,approx,
+^ASTONMARTIN (DBX)$,2021,2030,,1,198.4,,,Other SUV/crossover,approx,
+^CHRYSLER (ASPEN)$,2007,2009,,1,202.1,,,Other SUV/crossover,approx,
+^GENESIS (GV80)$,2021,2030,,1,195.5,,,Other SUV/crossover,approx,
+^SATURN (OUTLOOK|OUTLOO)$,2007,2010,,1,200.7,,,Other SUV/crossover,approx,
+^HONDA (ACCORD)$,2023,2030,,1,195.7,,,Car,approx,
+^HONDA (ACCORD)$,2008,2012,,1,194.1,,,Car,approx,sedan
+^TOYOTA (AVALON)$,2019,2022,,1,195.9,,,Car,autoevolution,
+^TOYOTA (AVALON)$,2013,2018,,1,195.3,,,Car,autoevolution,
+^TOYOTA (AVALON)$,2005,2012,,1,197.2,,,Car,autoevolution,
+^TOYOTA (CROWN)$,2023,2030,,1,196.1,,,Car,approx,
+^LEXUS (ES)$,2019,2030,,1,195.8,,,Car,autoevolution,
+^LEXUS (LS)$,2018,2030,,1,206.1,,,Car,web,
+^LEXUS (LS)$,2013,2017,,1,200.4,,,Car,autoevolution,
+^LEXUS (LS)$,2007,2012,,1,199.2,,,Car,autoevolution,
+^LEXUS (LS)$,2001,2006,,1,197.6,,,Car,autoevolution,
+^MERCEDESBENZ (S|S 500|S550|S560|S580)$,2021,2030,,1,208.2,,,Car,web,
+^MERCEDESBENZ (S|S 500|S550|S560|S580)$,2014,2020,,1,206.5,,,Car,web,
+^MERCEDESBENZ (S|S 500|S550|S560|S580)$,2007,2013,,1,205.0,,,Car,approx,
+^MERCEDESBENZ (S|S 500|S550|S560|S580)$,2000,2006,,1,203.1,,,Car,approx,
+^MERCEDESBENZ (CL)$,2007,2014,,1,200.7,,,Car,approx,
+^MERCEDESBENZ (EQS)$,2022,2030,,1,205.4,,,Car,approx,EQS sedan
+^BMW (7[0-9]{2}(I|LI|XI|LXI|E|XE)?|I7)$,2023,2030,,1,212.2,,,Car,web,
+^BMW (7[0-9]{2}(I|LI|XI|LXI|E|XE)?|I7)$,2016,2022,,1,206.6,,,Car,web,
+^BMW (7[0-9]{2}(I|LI|XI|LXI|E|XE)?|I7)$,2009,2015,,1,205.3,,,Car,web,long wheelbase
+^BMW (7[0-9]{2}(I|LI|XI|LXI|E|XE)?|I7)$,2002,2008,,1,203.5,,,Car,approx,long wheelbase
+^BMW (5[0-9]{2}(I|XI|E|XE)?|M5|M550XI|M550I|I5)$,2024,2030,,1,199.2,,,Car,approx,current 5 Series
+^BMW (5[0-9]{2}(I|XI|E|XE)?|M5|M550XI|M550I|I5)$,2017,2023,,1,194.6,,,Car,approx,
+^AUDI (A8|A8 L|S8)$,2019,2030,,1,208.7,,,Car,approx,
+^AUDI (A8|A8 L|S8)$,2011,2018,,1,207.4,,,Car,autoevolution,A8 L
+^AUDI (A8|A8 L|S8)$,2004,2010,,1,204.0,,,Car,autoevolution,A8 L
+^AUDI (A7|S7|RS7)$,2012,2030,,1,195.6,,,Car,autoevolution,
+^PORSCHE (PANAMERA|PANAME)$,2017,2030,,1,198.8,,,Car,approx,
+^PORSCHE (PANAMERA|PANAME)$,2010,2016,,1,195.6,,,Car,approx,
+^PORSCHE (TAYCAN)$,2020,2030,,1,195.4,,,Car,approx,
+^TESLA (MODEL S|S)$,2012,2030,,1,196.0,,,Car,approx,
+^LUCID (AIR)$,2022,2030,,1,195.9,,,Car,approx,
+^GENESIS (G90)$,2023,2030,,1,207.7,,,Car,approx,
+^GENESIS (G90)$,2017,2022,,1,204.9,,,Car,approx,
+^GENESIS (G80)$,2017,2030,,1,196.5,,,Car,approx,
+^HYUNDAI (GENESIS|GENESI)$,2009,2016,,1,196.4,,,Car,approx,sedan
+^HYUNDAI (EQUUS)$,2011,2016,,1,203.1,,,Car,approx,
+^KIA (CADENZA|CADENZ)$,2014,2020,,1,195.6,,,Car,approx,
+^CHRYSLER (300|300C|30C)$,2011,2023,,1,198.6,,,Car,autoevolution,
+^CHRYSLER (300|300C|30C)$,2005,2010,,1,196.8,,,Car,autoevolution,
+^CHRYSLER (300M)$,1999,2004,,1,197.8,,,Car,approx,
+^CHRYSLER (CONCORDE|CONCOR)$,1998,2004,,1,209.1,,,Car,approx,
+^DODGE (CHARGER|CHRGER|CHARGE)$,2024,2030,,1,206.6,,,Car,approx,Charger Daytona
+^DODGE (CHARGER|CHRGER|CHARGE)$,2011,2023,,1,198.4,,,Car,autoevolution,
+^DODGE (CHARGER|CHRGER|CHARGE)$,2006,2010,,1,200.1,,,Car,autoevolution,
+^DODGE (CHALLENGER|CHALLE)$,2008,2023,,1,197.5,,,Car,approx,
+^DODGE (MAGNUM|MGN)$,2005,2008,,1,197.7,,,Car,approx,
+^DODGE (INTREPID|INTREP)$,1998,2004,,1,203.7,,,Car,approx,
+^CHEVROLET (IMPALA|IMPLA)$,2014,2020,,1,201.3,,,Car,autoevolution,
+^CHEVROLET (IMPALA|IMPLA)$,2006,2013,,1,200.4,,,Car,approx,
+^CHEVROLET (IMPALA|IMPLA)$,2000,2005,,1,200.0,,,Car,autoevolution,
+^CHEVROLET (IMPALA LIMITED)$,2014,2016,,1,200.4,,,Car,approx,previous-generation body
+^CHEVROLET (CAPRICE|CAPRICE / IMPALA|CAPRIC)$,1900,1996,,1,214.1,,,Car,approx,
+^CHEVROLET (MONTE CARLO|MONTE)$,2000,2007,,1,197.9,,,Car,approx,
+^FORD (TAURUS)$,2010,2019,,1,202.9,,,Car,autoevolution,
+^FORD (TAURUS)$,2008,2009,,1,201.5,,,Car,autoevolution,
+^FORD (TAURUS)$,1996,2007,,1,197.6,,,Car,autoevolution,
+^FORD (FIVE HUNDRED|FIVE H)$,2005,2007,,1,200.7,,,Car,autoevolution,
+^(FORD (CROWN VICTORIA|CROWN)|TOYOTA CROWN VICTORIA)$,1992,2011,,1,212.0,,,Car,autoevolution,
+^MERCURY (GRAND MARQUIS|GRAND|MARQUI)$,1992,2011,,1,211.9,,,Car,approx,
+^MERCURY (MARAUDER|MARAUD)$,2003,2004,,1,212.0,,,Car,approx,
+^LINCOLN (TOWN CAR|TOWNCA|TOWN C)$,1990,2011,,1,215.4,,,Car,approx,
+^LINCOLN (CONTINENTAL|CON|CONTIN)$,2017,2020,,1,201.4,,,Car,approx,
+^LINCOLN (CONTINENTAL|CON|CONTIN)$,1995,2002,,1,208.5,,,Car,approx,
+^LINCOLN (MKS)$,2009,2016,,1,204.1,,,Car,approx,
+^CADILLAC (XTS)$,2013,2019,,1,202.0,,,Car,approx,
+^CADILLAC (CT6)$,2016,2020,,1,204.1,,,Car,approx,
+^CADILLAC (DTS)$,2006,2011,,1,207.6,,,Car,approx,
+^CADILLAC (DEVILLE|6KD69|DEVILL)$,2000,2005,,1,207.0,,,Car,approx,
+^CADILLAC (STS)$,2005,2011,,1,196.3,,,Car,approx,
+^CADILLAC (SEVILLE|SEVILL)$,1998,2004,,1,201.0,,,Car,approx,
+^CADILLAC (ELDORADO|ELD|EL DOR|ELDORA)$,1992,2002,,1,200.6,,,Car,approx,
+^CADILLAC (CTS)$,2014,2019,,1,195.5,,,Car,approx,
+^BUICK (LACROSSE|LACROS)$,2017,2019,,1,197.0,,,Car,approx,
+^BUICK (LACROSSE|LACROS)$,2010,2016,,1,196.9,,,Car,approx,
+^BUICK (LACROSSE|LACROS)$,2005,2009,,1,198.1,,,Car,approx,
+^BUICK (LUCERNE|LUCERN)$,2006,2011,,1,203.2,,,Car,approx,
+^BUICK (LESABRE|LESABR)$,2000,2005,,1,200.0,,,Car,approx,
+^BUICK (PARK AVENUE|PARK A)$,1997,2005,,1,206.8,,,Car,approx,
+^BUICK (ROADMASTER|ROADMA)$,1991,1996,,1,215.8,,,Car,approx,
+^INFINITI (Q45)$,2002,2006,,1,196.7,,,Car,autoevolution,
+^VOLVO (S90)$,2017,2030,,1,200.1,,,Car,approx,
+^JAGUAR (XJ)$,2011,2019,,1,201.9,,,Car,approx,
+^JAGUAR (XJL|VANDENPLAS|VANDEN)$,2004,2019,,1,206.6,,,Car,approx,long wheelbase
+^MASERATI (QUATTROPORTE|QUATTR)$,2014,2030,,1,207.2,,,Car,approx,
+^MASERATI (GHIBLI)$,2014,2030,,1,195.7,,,Car,approx,
+^MASERATI (LEVANTE|LEVANT)$,2017,2030,,1,197.6,,,Other SUV/crossover,approx,
+^MERCEDESBENZ (CLS)$,2019,2030,,1,196.4,,,Car,approx,
+^INFINITI (Q70)$,2014,2019,,1,196.1,,,Car,autoevolution,
+^ACURA (RL)$,2005,2012,,1,195.8,,,Car,approx,
+^ACURA (TL)$,2009,2014,,1,195.3,,,Car,approx,
+^ACURA (ZDX)$,2024,2030,,1,197.7,,,Other SUV/crossover,approx,electric ZDX
+^TOYOTA (HIGHLANDER|HIG|HIGH|HIGHLD|HIGHLA)$,2020,2030,,1,194.9,,,Other SUV/crossover,web,
+^TOYOTA (4RUNNER|4RUNNE)$,2025,2030,,1,194.9,,,Other SUV/crossover,web,
+^TOYOTA (LAND CRUISER|LAND|LD CRU|LAND C)$,2024,2030,,1,193.7,,,Other SUV/crossover,approx,
+^TOYOTA (LAND CRUISER|LAND|LD CRU|LAND C)$,2016,2021,,1,194.9,,,Other SUV/crossover,approx,
+^TOYOTA (LAND CRUISER|LAND|LD CRU|LAND C)$,2008,2015,,1,194.7,,,Other SUV/crossover,approx,
+^TOYOTA (CROWN SIGNIA)$,2025,2030,,1,194.1,,,Other SUV/crossover,approx,
+^VOLVO (XC90)$,2016,2030,,1,194.9,,,Other SUV/crossover,autoevolution,
+^VOLVO (V90 CC|V90|V90 CROSS COUNTRY)$,2017,2030,,1,194.4,,,Car,autoevolution,
+^BMW (X5)$,2019,2030,,1,194.3,,,Other SUV/crossover,web,
+^BMW (X6)$,2020,2030,,1,194.8,,,Other SUV/crossover,approx,
+^BMW (IX)$,2022,2030,,1,195.0,,,Other SUV/crossover,autoevolution,
+^MERCEDESBENZ (GLE)$,2020,2030,,1,194.3,,,Other SUV/crossover,web,
+^MERCEDESBENZ (GLE COUPE)$,2020,2030,,1,195.0,,,Other SUV/crossover,approx,
+^PORSCHE (CAYENNE|CAYENN)$,2019,2030,,1,194.1,,,Other SUV/crossover,web,
+^LAND ROVER (RANGE ROVER SPORT)$,2023,2030,,1,194.7,,,Other SUV/crossover,approx,
+^POLESTAR (3)$,2025,2030,,1,193.6,,,Other SUV/crossover,approx,
+^ACURA (TLX)$,2021,2030,,1,194.6,,,Car,autoevolution,
+^CHEVROLET (MALIBU)$,2016,2025,,1,193.8,,,Car,autoevolution,
+^MERCEDESBENZ (ECLASS|E CLASS|E CLAS)$,2024,2030,,1,194.6,,,Car,approx,
+^MERCEDESBENZ (ECLASS|E CLASS|E CLAS)$,2017,2023,,1,193.8,,,Car,approx,
+^MERCEDESBENZ (EQE SEDAN)$,2023,2030,,1,194.7,,,Car,autoevolution,
+^AUDI (A6|S6|RS6|A6 ALLROAD)$,2019,2030,,1,194.4,,,Car,autoevolution,
+^AUDI (A6|S6|RS6|A6 ALLROAD)$,2012,2018,,1,194.0,,,Car,autoevolution,
+^LINCOLN (MKZ)$,2013,2020,,1,194.1,,,Car,approx,
+^VOLKSWAGEN (PASSAT)$,2020,2022,,1,193.6,,,Car,approx,
+^CADILLAC (CT5|CT5V)$,2020,2030,,1,193.8,,,Car,approx,
+^INFINITI (M37|M56)$,2011,2013,,1,194.7,,,Car,approx,
