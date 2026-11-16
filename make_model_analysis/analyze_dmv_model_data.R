@@ -708,9 +708,7 @@ hood <- read_excel(file.path(root_path, "hood_heights_v4.xlsx"), sheet = "Hood_h
   select(rank = 1, make_model = 2, hood_in = 4) |>
   filter(!is.na(rank), !is.na(hood_in)) |>              # drops unmeasured and summary rows
   mutate(key = recode(norm(make_model),
-                      "JEEP WRANGLER UNLIMITED" = "JEEP WRANGLER",
-                      "MERCEDESBENZ CCLASS"     = "MERCEDESBENZ C",
-                      "MERCEDESBENZ ECLASS"     = "MERCEDESBENZ E")) |>
+                      "JEEP WRANGLER UNLIMITED" = "JEEP WRANGLER")) |>
   distinct(key, .keep_all = TRUE)
 
 med <- dmv_b |>

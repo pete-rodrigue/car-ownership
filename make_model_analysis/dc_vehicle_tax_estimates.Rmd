@@ -1,11 +1,12 @@
 ---
-title: "DC vehicle taxes: a 5% value tax over $40k, and a length surcharge"
+title: "DC vehicle taxes: a 5% value tax over $40k, a length surcharge, and a hood-height surcharge"
 output: html_document
 ---
 
 ```{r setup, message = FALSE}
 library(dplyr)
 library(readr)
+library(readxl)
 library(tidyr)
 library(stringr)
 library(purrr)
@@ -13,6 +14,7 @@ options(scipen = 999, width = 110, pillar.sigfig = 6)
 
 dmv_file  <- "dmv_data_cleaned.csv"  # cleaned DMV new-registration data
 len_file  <- "vehicle_lengths.csv"   # lengths of nameplates longer than a Camry (built for this note)
+hood_file <- "hood_heights_v4.xlsx"  # hood leading-edge heights, 195 nameplates (carsized.com photos)
 stock     <- 279262                  # DC household vehicles, ACS 2020-24 (B25046)
 
 # ---- Part 1: value tax settings -------------------------------------------
@@ -28,6 +30,14 @@ L_camry    <- 193.5        # fee starts above this length (in.): 2025 Toyota Cam
 L_esv      <- 227.0        # fee reaches fee_at_esv at this length (in.): 2025 Escalade ESV
 commercial_types <- c("Van", "Heavy-duty pickup")  # vehicle types exempted as "commercial"
 ext_share  <- 1/3          # share of lumped SUVs that are the long version (ESV, Expedition MAX, ...)
+
+# ---- Part 3: hood-height surcharge settings (edit these, then re-knit) -----
+hood_fee_at_esv <- 300               # annual fee ($) at the hood height of a Cadillac Escalade ESV
+hood_curve      <- 1                 # 1 = fee rises linearly with hood height; 2 = quadratic
+hood_fee_cap    <- hood_fee_at_esv   # top fee ($) in the "capped" results; or type a dollar amount
+H_low           <- 35                # fee starts above this hood height (in.)
+H_high          <- 45                # fee reaches hood_fee_at_esv here (in.): Cadillac Escalade, from hood_file
+H_hd_pickup     <- 55                # assumed hood height (in.) of heavy-duty pickups, which weren't measured
 ```
 
 # Part 1. A 5% tax on vehicle value over $40,000
@@ -146,9 +156,9 @@ tibble(variant   = c("Brand averages only (no spread)", "Central (spread 0.3)",
 
 # Part 2. An annual length surcharge
 
-The surcharge is $0 for a vehicle no longer than a 2025 Toyota Camry (`r L_camry` in.). Above that it rises `r if (curve == 1) "in a straight line" else paste0("with the extra length raised to the power ", curve)`, reaching $`r fee_at_esv` at the length of a 2025 Cadillac Escalade ESV (`r L_esv` in.) and continuing upward beyond it. The "capped" results stop it at $`r fee_cap`. All of these settings live in the `setup` chunk at the top.
+The surcharge is \$0 for a vehicle no longer than a 2025 Toyota Camry (`r L_camry` in.). Above that it rises `r if (curve == 1) "in a straight line" else paste0("with the extra length raised to the power ", curve)`, reaching $`r fee_at_esv` at the length of a 2025 Cadillac Escalade ESV (`r L_esv` in.) and continuing upward beyond it. The "capped" results stop it at $`r fee_cap`. All of these settings live in the `setup` chunk at the top.
 
-## 1. The schedule
+## 5. The schedule
 
 ```{r schedule}
 surcharge <- function(len, cap = Inf) {
@@ -171,7 +181,7 @@ tribble(~vehicle,                           ~length_in,
          capped   = round(surcharge(length_in, cap = fee_cap)))
 ```
 
-## 2. Vehicle lengths
+## 6. Vehicle lengths
 
 The DMV file has make, model and model year, but not trim, cab or wheelbase. `vehicle_lengths.csv` gives an overall length, one row per generation, for every nameplate longer than a Camry among those with five or more 2025 registrations (97% of vehicles), plus rarer big trucks, vans and SUVs. Anything not listed is treated as Camry-length or shorter. Two simplifications:
 
@@ -208,7 +218,7 @@ fee_rows <- function(data = new25, cap = Inf, body = "len", ext = ext_share, exe
 }
 ```
 
-## 3. Revenue
+## 7. Revenue
 
 Revenue scales the average surcharge among 2025 new registrations up to all `r format(stock, big.mark = ",")` vehicles, assuming the fleet's length mix matches the 2025 registrants'.
 
@@ -233,21 +243,16 @@ res |> mutate(across(where(is.numeric), \(x) round(x, 2)))
 ```
 
 ```{r payer_median, include = FALSE}
-wquantile <- function(x, w, p) {
-  o  <- order(x)
-  cw <- cumsum(w[o]) / sum(w)          # weighted share of payers at or below each fee
-  sapply(p, \(q) x[o][which(cw >= q)[1]])
+# Weighted quantile: smallest x with at least share p of the weight at or below it
+wquantile <- function(x, w, p) { o <- order(x); x[o][which(cumsum(w[o]) >= p * sum(w))[1]] }
+payer_q <- function(r) {
+  r0 <- filter(r, fee > 0)
+  sapply(c(p50 = 0.5, p75 = 0.75, p90 = 0.9), \(p) round(wquantile(r0$fee, r0$n * r0$share, p)))
 }
-
-r0 <- fee_rows() |> filter(fee > 0)
-payer_pct    <- wquantile(r0$fee, r0$n * r0$share, c(0.50, 0.75, 0.90))
-median_payer <- payer_pct[1]   # keeps the existing inline text working
+len_q <- payer_q(fee_rows())
 ```
 
-About `r round(res$pct_charged[1])`% of vehicles are long enough to pay anything. 
-The median payer owes $`r round(payer_pct[1])` a year, the 75th percentile $`r round(payer_pct[2])`,
-the 90th percentile $`r round(payer_pct[3])`, and the average payer $`r round(res$fee_if_charged[1])`.
-Fleet-wide, the surcharge raises about **$`r round(res$rev_fleet_M[1], 1)` million a year uncapped, or $`r round(res$rev_fleet_M[2], 1)` million with a \$`r fee_cap` cap**. Exempting commercial-type vehicles brings that to \$`r round(res$rev_fleet_M[3], 1)` million uncapped, or \$`r round(res$rev_fleet_M[4], 1)` million capped.
+About `r round(res$pct_charged[1])`% of vehicles are long enough to pay anything. The median payer owes $`r len_q["p50"]` a year (75th percentile $`r len_q["p75"]`, 90th percentile $`r len_q["p90"]`), and the average payer $`r round(res$fee_if_charged[1])`. Fleet-wide, the surcharge raises about **$`r round(res$rev_fleet_M[1], 1)` million a year uncapped, or $`r round(res$rev_fleet_M[2], 1)` million with a $`r fee_cap` cap**. Exempting commercial-type vehicles brings that to $`r round(res$rev_fleet_M[3], 1)` million uncapped, or $`r round(res$rev_fleet_M[4], 1)` million capped.
 
 ## Who pays
 
@@ -315,6 +320,225 @@ map(2019:2025, \(yr) {
 * "Commercial" is a proxy based on vehicle type, not registration type (see section 7).
 * Scaling 2025 registrations up to the fleet assumes the fleet's length mix matches recent registrants'. The table above suggests that mix has been stable since 2019.
 
+# Part 3. An annual hood-height surcharge
+
+This works like the length surcharge, with hood height in place of length. 
+The surcharge is \$0 for a vehicle whose hood is no higher than `r H_low` in. Above that it rises 
+`r if (hood_curve == 1) "in a straight line" else paste0("with the extra height raised to the power ", hood_curve)`, 
+reaching \$`r hood_fee_at_esv` at `r H_high` in. and continuing upward beyond it. The "capped" results stop it at $`r hood_fee_cap`. It uses the same 2025 registrations, the same fleet scaling and the same commercial-type exemption as Part 2. The settings are in the `setup` chunk.
+
+Hood height is the "hood leading edge": where a 1-meter straight edge, tilted 50° from vertical with its lower end 60 cm off the ground, first touches the front of the vehicle (the Euro NCAP / UN GTR 9 definition). The [IIHS](https://www.iihs.org/news/detail/vehicles-with-higher-more-vertical-front-ends-pose-greater-risk-to-pedestrians) found that vehicles with a hood leading edge more than 40 in. off the ground were 44–45% more likely to kill a pedestrian in a crash than vehicles with a hood 30 in. or lower and a sloped front.
+
+## 8. The schedule
+
+Heights below are from `hood_file`. `photo` is the carsized.com image measured, which shows the vehicle's generation.
+
+```{r hood_schedule}
+hood_fee <- function(h, cap = Inf, bottom = H_low, top = H_high) {
+  pmin(hood_fee_at_esv * (pmax(h - bottom, 0) / (top - bottom))^hood_curve, cap)
+}
+
+norm <- function(x) str_to_upper(str_remove_all(str_squish(x), "-"))  # same as the DMV cleaning
+
+hood <- read_excel(hood_file, sheet = "Hood_heights") |>
+  select(rank = 1, nameplate = 2, hood_body = 3, hood_in = 4, page = 11) |>
+  filter(!is.na(rank)) |>                                   # drops the notes under the table
+  mutate(nameplate = recode(norm(nameplate), "JEEP WRANGLER UNLIMITED" = "JEEP WRANGLER"),
+         photo     = str_extract(page, "cars/([^/]+)/", group = 1))
+
+hood |>
+  filter(nameplate %in% c("TESLA MODEL 3", "TOYOTA CAMRY", "HONDA CIVIC", "TESLA MODEL Y", "HONDA CRV",
+                          "TOYOTA RAV4", "TOYOTA HIGHLANDER", "JEEP GRAND CHEROKEE", "CADILLAC ESCALADE",
+                          "CHEVROLET TAHOE", "FORD F150", "CHEVROLET SILVERADO", "FORD BRONCO")) |>
+  select(nameplate, hood_in, photo) |>
+  add_row(nameplate = "Heavy-duty pickup (assumed)", hood_in = H_hd_pickup) |>
+  mutate(uncapped = round(hood_fee(hood_in)),
+         capped   = round(hood_fee(hood_in, cap = hood_fee_cap))) |>
+  arrange(hood_in)
+```
+
+## 9. Hood heights
+
+`hood_file` has hood heights for 195 of the 200 most common nameplates in DC's 2018–25 registrations, measured from carsized.com side photos scaled to each model's published height. Each nameplate is measured once, from the generation covering its median DC model year. The DMV records are matched to them with the same name cleaning as the earlier make-model analysis (`nameplate_harmonization.csv`).
+
+Each 2025 vehicle then gets a height in this order:
+
+* **Measured**: its nameplate was measured.
+* **Borrowed**: a variant or twin of a measured nameplate (an M340i takes the 3 Series; a Lexus TX the Highlander), listed in `nameplate_harmonization_extra.csv`.
+* **Imputed**: the weighted median measured height of 2025 vehicles of the same type. The type is the Part 2 segment if the vehicle is in `vehicle_lengths.csv`, and otherwise its body type from `body_type_lookup.csv` or `body_type_lookup_extra.csv`. Vehicles with no type get the median for measured vehicles that are not in the length table, i.e. no longer than a Camry.
+* **Assumed**: heavy-duty pickups (none measured) get `H_hd_pickup`.
+* **No hood**: motorcycles pay nothing.
+
+A measurement error shared by every photo cancels out, because the fee depends only on how much higher a hood is than the Camry's. Errors that differ from model to model do not: across 32 models measured both ways, carsized.com photos typically read 1.7 in. higher than dimensions.com drawings, with a standard deviation of about 1.4 in. around that gap.
+
+```{r hood_heights}
+read_norm <- function(f) read_csv(f, show_col_types = FALSE) |> mutate(across(everything(), norm))
+
+harm_extra <- read_norm("nameplate_harmonization_extra.csv")
+harm   <- bind_rows(read_norm("nameplate_harmonization.csv"), harm_extra) |>
+  distinct(make_model, .keep_all = TRUE)
+bodies <- bind_rows(read_csv("body_type_lookup.csv", show_col_types = FALSE),
+                    read_csv("body_type_lookup_extra.csv", show_col_types = FALSE)) |>
+  mutate(nameplate = norm(nameplate)) |>
+  distinct(nameplate, .keep_all = TRUE)
+
+# One row per nameplate, and every borrowed height points at a measured nameplate
+stopifnot(!anyDuplicated(hood$nameplate),
+          all(harm_extra$nameplate %in% hood$nameplate[!is.na(hood$hood_in)]))
+
+# Part 2 segments (one per make_model and model year) for vehicles longer than a Camry
+seg_lookup <- fee_rows(dmv) |> distinct(make_model, model_year, len_segment = segment)
+stopifnot(!anyDuplicated(select(seg_lookup, make_model, model_year)))
+
+body_to_type <- c(Car = "Car", SUV = "Other SUV/crossover", Pickup = "Midsize pickup",
+                  `Van/minivan` = "Minivan")
+
+# Honda and BMW motorcycles (the only motorcycle makers among the brands kept): no hood
+bike_pattern <- paste0("^BMW (R ?[0-9]|R NINE|K ?[0-9]|F ?[0-9]|S ?1000|C ?[0-9]|CE ?0|G ?[0-9]|M 1000)",
+                       "|^HONDA (CB|CMX|CRF|CTX|GL1|GROM|NC7|NC750|NCH|NCW|NPS|NVA|PCX|VT|XR|Z125",
+                       "|ADV|C125|CH|CN|CT125|WW|XL7)")
+
+classify <- function(data) {
+  data |>
+    left_join(harm, by = "make_model") |>
+    mutate(nameplate = coalesce(nameplate, make_model),
+           borrowed  = make_model %in% harm_extra$make_model) |>
+    left_join(select(hood, nameplate, hood_body, hood_in), by = "nameplate") |>
+    left_join(bodies, by = "nameplate") |>
+    left_join(seg_lookup, by = join_by(make_model, model_year)) |>
+    mutate(segment = case_when(str_detect(coalesce(make_model, ""), bike_pattern) ~ "Motorcycle",
+                               .default = coalesce(len_segment,
+                                                   unname(body_to_type[coalesce(hood_body, body)]),
+                                                   "Unclassified")))
+}
+
+# Fallback heights by type, from measured 2025 vehicles
+measured25 <- classify(new25) |> filter(!is.na(hood_in))
+type_in    <- measured25 |> summarise(type_in = wquantile(hood_in, n, 0.5), .by = segment)
+short_in   <- with(filter(measured25, is.na(len_segment)), wquantile(hood_in, n, 0.5))
+
+# One row per DMV record. `unmeasured` = "impute" (central), "zero" or "average"
+# (unmeasured vehicles pay the average fee of measured ones).
+hood_rows <- function(data = new25, cap = Inf, exempt = character(0), unmeasured = "impute",
+                      bottom = H_low, top = H_high) {
+  r <- classify(data) |>
+    left_join(type_in, by = "segment") |>
+    mutate(source = case_when(segment == "Motorcycle"        ~ "no hood",
+                              !is.na(hood_in) & borrowed     ~ "borrowed",
+                              !is.na(hood_in)                ~ "measured",
+                              segment == "Heavy-duty pickup" ~ "assumed",
+                              .default                       = "imputed"),
+           height = case_when(source %in% c("measured", "borrowed") ~ hood_in,
+                              source == "assumed"                   ~ H_hd_pickup,
+                              source == "imputed"                   ~ coalesce(type_in, short_in)),
+           fee    = if_else(source == "no hood", 0, hood_fee(height, cap, bottom, top)),
+           share  = 1)                                      # so Part 2's helpers work unchanged
+  known <- r$source %in% c("measured", "borrowed")
+  paid  <- known & !r$segment %in% exempt
+  if (unmeasured == "zero")    r$fee[!known] <- 0
+  if (unmeasured == "average") r$fee[!known & r$source != "no hood"] <- weighted.mean(r$fee[paid], r$n[paid])
+  mutate(r, fee = if_else(segment %in% exempt, 0, fee))
+}
+
+# Share of 2025 vehicles by where their height comes from, and the fallback heights used
+hood_rows() |> count(source, wt = n) |> mutate(pct = round(100 * n / sum(n), 1)) |> arrange(desc(n))
+type_in |> add_row(segment = "Unclassified", type_in = short_in) |> arrange(type_in)
+```
+
+## 10. Revenue
+
+```{r hood_results}
+hres <- bind_rows(
+  "All vehicles, uncapped"      = summarise_fees(hood_rows()),
+  "All vehicles, capped"        = summarise_fees(hood_rows(cap = hood_fee_cap)),
+  "Commercial exempt, uncapped" = summarise_fees(hood_rows(exempt = commercial_types)),
+  "Commercial exempt, capped"   = summarise_fees(hood_rows(cap = hood_fee_cap, exempt = commercial_types)),
+  .id = "version")
+hres |> mutate(across(where(is.numeric), \(x) round(x, 2)))
+
+hood_q <- payer_q(hood_rows())
+```
+
+About `r round(hres$pct_charged[1])`% of vehicles have a hood higher than 
+`r H_low` and pay something. The median payer owes 
+\$`r hood_q["p50"]` a year 
+(75th percentile \$`r hood_q["p75"]`, 90th percentile \$`r hood_q["p90"]`), and 
+the average payer \$`r round(hres$fee_if_charged[1])`. 
+Fleet-wide, the surcharge raises about **\$`r round(hres$rev_fleet_M[1], 1)` million a year uncapped, or \$`r round(hres$rev_fleet_M[2], 1)` million with a \$`r hood_fee_cap` cap**. 
+Exempting commercial-type vehicles brings that to \$`r round(hres$rev_fleet_M[3], 1)` 
+million uncapped, or \$`r round(hres$rev_fleet_M[4], 1)` million capped.
+
+## Who pays
+
+Vehicles charged and revenue by type, scaled to the full fleet. `pct_measured` is the share of each type's vehicles with a measured or borrowed height.
+
+```{r hood_segments}
+hr <- hood_rows()
+left_join(by_segment(hr),
+          by_segment(hood_rows(cap = hood_fee_cap)) |> select(segment, revenue_capped_M = revenue_M),
+          by = "segment") |>
+  left_join(hr |> summarise(pct_measured = 100 * sum(n[source %in% c("measured", "borrowed")]) / sum(n),
+                            .by = segment), by = "segment") |>
+  filter(cars_charged > 0) |>
+  mutate(avg_fee_uncapped = 1e6 * revenue_M / cars_charged,
+         commercial       = segment %in% commercial_types) |>
+  arrange(desc(revenue_M)) |>
+  mutate(across(c(cars_charged, avg_fee_uncapped, pct_measured), round),
+         across(starts_with("revenue"), \(x) round(x, 2)))
+```
+
+## Sensitivity
+
+Fleet revenue in \$ millions. The two anchor heights matter most: each is a single photo measurement, and moving the Camry's by an inch shifts the fee of nearly every vehicle by about \$`r round(hood_fee_at_esv / (H_high - H_low))`.
+
+```{r hood_sensitivity}
+run_hood <- function(...) {
+  r <- hood_rows(...)
+  round(sum(r$n * r$fee) / sum(new25$n) * stock / 1e6, 2)
+}
+
+hood_variants <- list("Central"                                   = list(),
+                      "Unmeasured vehicles pay $0"                = list(unmeasured = "zero"),
+                      "Unmeasured vehicles pay the average"       = list(unmeasured = "average"),
+                      "Lower anchor 1 in. lower"                  = list(bottom = H_low - 1),
+                      "Higher anchor 1 in. higher"                = list(bottom = H_low + 1),
+                      "Escalade ESV anchor 47.8 in. (GMC Yukon)"  = list(top = 47.8))
+
+hood_sens <- imap(hood_variants, \(args, name) tibble(
+  variant                = name,
+  uncapped_M             = do.call(run_hood, args),
+  capped_M               = do.call(run_hood, c(args, cap = hood_fee_cap)),
+  uncapped_comm_exempt_M = do.call(run_hood, c(args, list(exempt = commercial_types))),
+  capped_comm_exempt_M   = do.call(run_hood, c(args, list(cap = hood_fee_cap, exempt = commercial_types))))) |>
+  list_rbind()
+hood_sens
+```
+
+## Is 2025 a typical year?
+
+Average surcharge per newly registered vehicle by registration year. `pct_measured` falls in earlier years because their files abbreviate more model names.
+
+```{r hood_by_year}
+map(2019:2025, \(yr) {
+  d  <- filter(dmv, year == yr)
+  r  <- hood_rows(d)
+  rc <- hood_rows(d, cap = hood_fee_cap)
+  tibble(year         = yr,
+         uncapped     = sum(r$n * r$fee) / sum(d$n),
+         capped       = sum(rc$n * rc$fee) / sum(d$n),
+         pct_measured = 100 * sum(r$n[r$source %in% c("measured", "borrowed")]) / sum(d$n))
+}) |>
+  list_rbind() |>
+  mutate(across(c(uncapped, capped, pct_measured), \(x) round(x, 1)))
+```
+
+## Caveats
+
+* **One generation per nameplate.** Each nameplate's height comes from one photo, usually of the generation covering its median DC model year, and applies to every model year. The Escalade anchor is carsized.com's 2006 generation (2007–14 model years); the ESV shares its front end. The current Escalade may sit higher (see the sensitivity row using the Yukon's height). The Jeep Wrangler uses the 2007–17 JK (46.9 in.); a dimensions.com drawing of the 2018+ JL reads 4.3 in. lower, or about 2.6 in. after allowing for the usual gap between the two sources.
+* **`r round(100 * sum(hr$n[hr$source %in% c("imputed", "assumed")]) / sum(hr$n))`% of 2025 vehicles have imputed or assumed heights.** Charging them nothing would cut uncapped revenue by $`r round(hood_sens$uncapped_M[1] - hood_sens$uncapped_M[2], 1)` million; charging them the measured vehicles' average fee instead of imputing changes it by $`r abs(round(hood_sens$uncapped_M[3] - hood_sens$uncapped_M[1], 1))` million.
+* **Vans are probably overstated.** Every full-size van gets the Chevrolet Express's 47.9 in. The Transit, ProMaster and Sprinter weren't measured, and their short, sloped noses probably sit lower. The commercial-exempt rows remove them.
+* The estimate is static and the commercial exemption is a proxy, as in Part 2.
+
 # Checks
 
 ```{r checks}
@@ -325,8 +549,7 @@ sim <- sapply(mu, \(m) mean(pmax(rlnorm(1e6, log(m) - spread^2 / 2, spread) - th
 round(rbind(formula = expected_excess(mu), simulation = sim))
 
 # 2. Honda and BMW motorcycles are valued as if they were cars in Part 1
-bikes <- str_detect(coalesce(dmv$make_model, ""),
-  "^BMW (R ?[0-9]|R NINE|K ?[0-9]|F ?[0-9]|S ?1000|C ?[0-9]|CE ?0|G ?[0-9]|M 1000)|^HONDA (CB|CMX|CRF|CTX|GL1|GROM|NC7|NC750|NCH|NCW|NPS|NVA|PCX|VT|XR|Z125|ADV|C125|CH|CN|CT125|WW|XL7)")
+bikes <- str_detect(coalesce(dmv$make_model, ""), bike_pattern)   # pattern defined in section 9
 c(bikes_still_registered = round(sum(dmv$still_here[bikes])),
   tax_M = round(sum(dmv$still_here[bikes] * dmv$tax[bikes]) / 1e6, 2),
   pct_of_revenue = round(100 * sum(dmv$still_here[bikes] * dmv$tax[bikes]) / sum(dmv$still_here * dmv$tax), 1))
@@ -336,6 +559,12 @@ c(bikes_still_registered = round(sum(dmv$still_here[bikes])),
 r <- fee_rows()
 r |> group_by(verified) |>
   summarise(pct_of_uncapped_revenue = round(100 * sum(n * share * fee) / sum(r$n * r$share * r$fee), 1))
+
+
+# 5. Share of the 2025 hood revenue by where the height comes from
+hr |> group_by(source) |>
+  summarise(pct_of_vehicles         = round(100 * sum(n) / sum(hr$n), 1),
+            pct_of_uncapped_revenue = round(100 * sum(n * fee) / sum(hr$n * hr$fee), 1))
 ```
 
 # Sources
@@ -345,3 +574,4 @@ r |> group_by(verified) |>
 * Main pickups and vans: [Ford F-150 spec sheet](https://media.ford.com/content/dam/fordmedia/North%20America/US/product/2024/f150/2024%20Ford%20F-150%20Tech%20Specs.pdf); [Ford Transit spec sheet](https://www.fromtheroad.ford.com/content/dam/fordmediasite/us/en/library/2025/specs/2025%20Ford%20Transit%20Technical%20Specifications.pdf); [Chevrolet Express](https://chevrolet.com/commercial/express/vans); [Ram ProMaster (KBB)](https://www.kbb.com/ram/promaster/2020/specs/); [Silverado (GM Authority)](https://gmauthority.com/blog/2026/10/2027-chevy-silverado-1500-vs-2026-silverado-1500-exterior-dimensions-compared/); [Ram 1500](https://www.glendaledodgecalifornia.com/research-ram-1500-cabs-boxes.html); [Tundra](https://pickuptrucktalk.com/2021/10/is-the-2022-toyota-tundra-smaller-a-spec-by-spec-comparison/); [Sprinter](https://www.mercedesbenzofwarwick.com/2024-mercedes-benz-sprinter-dimensions/); [E-Series](https://vandimensions.com/database/ford/e-series-2008).
 * Large SUVs and minivans: [Tahoe and Suburban](https://www.automotive-fleet.com/news/chevrolet-refreshes-2021-tahoe-and-suburban-suvs); [Escalade generations (GM Authority)](https://gmauthority.com/blog/gm/cadillac/escalade/escalade-esv/); [Yukon](https://www.truedelta.com/GMC-Yukon/specs-103-2021); [Expedition spec sheet](https://www.fromtheroad.ford.com/content/dam/fordmediasite/us/en/library/2025/specs/2025-Ford-Expedition-Technical-Specs.pdf); [minivans (KBB)](https://www.kbb.com/compare-cars/results/van-minivan).
 * Other lengths: the [autoevolution specs dataset](https://github.com/ilyasozkurt/automobile-models-and-specs) where it has the U.S. model; the rest are marked "approx" in the CSV.
+* Hood heights: measured from [carsized.com](https://www.carsized.com) side photos (pages listed in `hood_file`), cross-checked against [dimensions.com](https://www.dimensions.com) drawings for 32 models. Pedestrian risk: [IIHS (2023)](https://www.iihs.org/news/detail/vehicles-with-higher-more-vertical-front-ends-pose-greater-risk-to-pedestrians). Heavy-duty pickups: [Consumer Reports](https://www.consumerreports.org/cars/car-safety/the-hidden-dangers-of-big-trucks-a9662450602/) measured the front edge of some heavy-duty hoods, such as the Ford F-250's, at 55 in. or more.
