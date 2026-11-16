@@ -2,7 +2,9 @@
 
 library(readxl); library(dplyr); library(tidyr); library(purrr)
 library(stringr); library(tibble); library(ggplot2); library(scales)
-library(forcats)
+library(forcats); library(patchwork); library(ggrepel)
+
+setwd("~/GitHub/car-ownership/make_model_analysis")
 
 root_path  <- "~/Github/car-ownership/make_model_analysis"
 foia_path  <- file.path(root_path, "FOIA R013826-090926 Responsive Document.xlsx")
@@ -165,7 +167,7 @@ dmv_clean |>
 
 
 write.csv(x = dmv_clean, 
-          file = "make_model_analysis/dmv_data_cleaned.csv", 
+          file = "dmv_data_cleaned.csv", 
           row.names = F)
 
 
@@ -487,9 +489,6 @@ dmv_b <- dmv_clean |>
 
 
 
-library(dplyr); library(tidyr); library(ggplot2); library(ggrepel)
-library(patchwork); library(scales); library(stringr)
-
 # Display names (your norm() stripped hyphens: "HONDA CRV" -> "Honda CR-V")
 nice <- function(x) str_to_title(x) |>
   str_replace_all(c("Crv" = "CR-V", "Hrv" = "HR-V", "Rav4" = "RAV4", "Cx(\\d)" = "CX-\\1",
@@ -620,7 +619,7 @@ p_share <- ggplot(body_yr, aes(year)) +
 
 p_body <- (p_count | p_share) +
   plot_annotation(
-    title   = "New registrations of SUVs overtook cars in DC around 2023",
+    title   = "New registrations of SUVs overtook cars in DC around 2022",
     caption = paste0("Body type hand-classified for the 250 most common nameplates ",
                     "(~84% of vehicles); the rest are excluded from both panels.\n",
                     src),
