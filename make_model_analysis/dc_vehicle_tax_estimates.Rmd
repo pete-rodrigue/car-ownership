@@ -15,7 +15,13 @@ options(scipen = 999, width = 110, pillar.sigfig = 6)
 dmv_file  <- "dmv_data_cleaned.csv"  # cleaned DMV new-registration data
 len_file  <- "vehicle_lengths.csv"   # lengths of nameplates longer than a Camry (built for this note)
 hood_file <- "hood_heights_v4.xlsx"  # hood leading-edge heights, 195 nameplates (carsized.com photos)
-stock     <- 279262                  # DC household vehicles, ACS 2020-24 (B25046)
+
+# ---- Fleet: which vehicles a DC tax reaches (edit these, then re-knit) ------
+dmv_registered  <- 300000           # vehicles registered with DC DMV, all owners and types (DMV FY2025 report)
+dmv_residential <- 118907           # of those, registered at residential addresses, Jan 2026 (DMV FOIA)
+acs_vehicles    <- 279262           # vehicles DC households keep at home, wherever registered (ACS 2020-24, B25046)
+oos_share       <- 1 - 4500 / 6481  # share of household vehicles on out-of-state plates (ANC 1C: DMV FOIA vs. ACS)
+enforce         <- 0                # share of those moved onto DC plates (0 = today; 1 = all of them)
 
 # ---- Part 1: value tax settings -------------------------------------------
 rate      <- 0.05                    # value tax rate
@@ -69,23 +75,48 @@ atp_year <- c(`2015` = 33500, `2016` = 34500, `2017` = 35500, `2018` = 36500, `2
               `2025` = 49800, `2026` = 51109)
 ```
 
-## 2. Which cars are still registered in DC
+## 2. Which vehicles a DC tax reaches
 
-The DMV file counts cars *first registered* in DC each year. Assuming a constant share stays registered each year, that share is 1 − (2025 registrations ÷ total cars).
+An annual tax collected by the DMV reaches only vehicles registered in DC. That is a different group from the vehicles DC households own:
+
+* **Out-of-state plates.** Many residents keep vehicles registered in Maryland, Virginia or elsewhere, some legally with a reciprocity permit (students, military, congressional staff, diplomats). In ANC 1C the DMV lists about 4,500 registered vehicles, while the ACS counts 6,481 kept by households, so about `r round(100 * oos_share)`% are on other states' plates. These pay nothing unless enforcement moves them onto DC plates (`enforce`).
+* **Non-residential registrations.** DC registrations also include vehicles registered to businesses and other non-residential addresses, which the ACS doesn't count. The DMV reports about `r format(dmv_registered, big.mark = ",")` registered vehicles, but only `r format(dmv_residential, big.mark = ",")` at residential addresses.
+
+The first-registration counts used throughout include non-residential registrations (they include school buses and heavy trucks, for example), so the fleet they feed has to as well. The taxable fleet is therefore the DMV's registered total, cut to the Class I–III vehicles from the brands kept here, plus any out-of-state household vehicles that enforcement brings in.
+
+The DMV file counts vehicles *first registered* in DC each year. Assuming a constant share stays registered each year, that share is 1 − (2025 registrations ÷ registered fleet).
 
 ```{r stock}
-dmv <- read_csv(dmv_file, show_col_types = FALSE) |>
+all_regs <- read_csv(dmv_file, show_col_types = FALSE)
+dmv <- all_regs |>
   filter(weight_class %in% c("Class I", "Class II", "Class III"),
          make_clean %in% names(price_new))
 
+# Share of registrations that are Class I-III vehicles from the brands kept (2019-25 first registrations)
+kept_share   <- sum(dmv$n[dmv$year >= 2019]) / sum(all_regs$n[all_regs$year >= 2019])
+stock_now    <- dmv_registered * kept_share           # taxable today
+oos_vehicles <- acs_vehicles * oos_share              # household vehicles on out-of-state plates
+stock        <- stock_now + enforce * oos_vehicles    # taxable fleet used in every part below
+
 inflow_2025 <- sum(dmv$n[dmv$year == 2025])
-retention   <- 1 - inflow_2025 / stock
+retention   <- 1 - inflow_2025 / stock_now
 
-dmv <- dmv |> mutate(still_here = n * retention^(2025 - year))
+# Vehicles brought in by enforcement are assumed to look like the DC-registered fleet
+dmv <- dmv |> mutate(still_here = n * retention^(2025 - year) * stock / stock_now)
 
-c(inflow_2025 = inflow_2025, retention = round(retention, 3),
-  modeled_stock = round(sum(dmv$still_here)))
+tibble(fleet    = c("Kept by DC households, wherever registered (ACS)",
+                    "Registered with DC DMV, all owners and types",
+                    "  Class I-III, brands kept here: taxable today",
+                    "  Registered at residential addresses (DMV FOIA)",
+                    "Household vehicles on out-of-state plates (ANC 1C rate)",
+                    "Taxable fleet used below"),
+       vehicles = round(c(acs_vehicles, dmv_registered, stock_now, dmv_residential, oos_vehicles, stock)))
+
+c(kept_share = round(kept_share, 3), inflow_2025 = inflow_2025, retention = round(retention, 3),
+  avg_years_registered = round(stock_now / inflow_2025, 1), modeled_stock = round(sum(dmv$still_here)))
 ```
+
+The inflow fits the registered total better than the residential count. Against the registered total, a vehicle stays registered about `r round(stock_now / inflow_2025, 1)` years on average. If the taxable fleet were only the `r format(dmv_residential, big.mark = ",")` residential registrations, the 2025 first registrations alone would replace `r round(100 * inflow_2025 / (dmv_residential * kept_share))`% of it in a year, an average registration of about `r round(dmv_residential * kept_share / inflow_2025, 1)` years. Section 11 shows the totals under each fleet count.
 
 ## 3. Value today
 
@@ -220,7 +251,7 @@ fee_rows <- function(data = new25, cap = Inf, body = "len", ext = ext_share, exe
 
 ## 7. Revenue
 
-Revenue scales the average surcharge among 2025 new registrations up to all `r format(stock, big.mark = ",")` vehicles, assuming the fleet's length mix matches the 2025 registrants'.
+Revenue scales the average surcharge among 2025 new registrations up to the `r format(round(stock), big.mark = ",")` vehicles in the taxable fleet (section 2), assuming the fleet's length mix matches the 2025 registrants'.
 
 **Commercial vehicles.** The DMV file doesn't say which vehicles carry commercial plates, so the "commercial exempt" rows exempt commercial-type vehicles instead: the types listed in `commercial_types`. By default that is full-size vans (Transit, ProMaster, Express/Savana, E-Series, Sprinter, Metris, NV) and heavy-duty pickups (F-250/350/450, Ram 2500/3500). This exempts some personal vans and misses business-owned F-150s and Silverados. Most heavy trucks and buses are already out of the analysis: the DMV puts them in its "All Others" weight class, which both parts leave out.
 
@@ -369,7 +400,7 @@ Each 2025 vehicle then gets a height in this order:
 * **Assumed**: heavy-duty pickups (none measured) get `H_hd_pickup`.
 * **No hood**: motorcycles pay nothing.
 
-A measurement error shared by every photo cancels out, because the fee depends only on how much higher a hood is than the Camry's. Errors that differ from model to model do not: across 32 models measured both ways, carsized.com photos typically read 1.7 in. higher than dimensions.com drawings, with a standard deviation of about 1.4 in. around that gap.
+Because the fee starts at a fixed height (`r H_low` in.) rather than at a measured vehicle, a measurement error shared by every photo does not cancel out. Across 32 models measured both ways, carsized.com photos typically read 1.7 in. higher than dimensions.com drawings, with a standard deviation of about 1.4 in. around that gap. The sensitivity table shows the result if every height, including the Escalade's, were 1.7 in. lower.
 
 ```{r hood_heights}
 read_norm <- function(f) read_csv(f, show_col_types = FALSE) |> mutate(across(everything(), norm))
@@ -460,7 +491,7 @@ hood_q <- payer_q(hood_rows())
 ```
 
 About `r round(hres$pct_charged[1])`% of vehicles have a hood higher than 
-`r H_low` and pay something. The median payer owes 
+`r H_low` in. and pay something. The median payer owes 
 \$`r hood_q["p50"]` a year 
 (75th percentile \$`r hood_q["p75"]`, 90th percentile \$`r hood_q["p90"]`), and 
 the average payer \$`r round(hres$fee_if_charged[1])`. 
@@ -489,7 +520,7 @@ left_join(by_segment(hr),
 
 ## Sensitivity
 
-Fleet revenue in \$ millions. The two anchor heights matter most: each is a single photo measurement, and moving the Camry's by an inch shifts the fee of nearly every vehicle by about \$`r round(hood_fee_at_esv / (H_high - H_low))`.
+Fleet revenue in \$ millions. The starting height matters most: moving it by an inch shifts the fee of every vehicle above it by about \$`r round(hood_fee_at_esv / (H_high - H_low))`.
 
 ```{r hood_sensitivity}
 run_hood <- function(...) {
@@ -500,8 +531,9 @@ run_hood <- function(...) {
 hood_variants <- list("Central"                                   = list(),
                       "Unmeasured vehicles pay $0"                = list(unmeasured = "zero"),
                       "Unmeasured vehicles pay the average"       = list(unmeasured = "average"),
-                      "Lower anchor 1 in. lower"                  = list(bottom = H_low - 1),
-                      "Higher anchor 1 in. higher"                = list(bottom = H_low + 1),
+                      "Fee starts 1 in. lower"                    = list(bottom = H_low - 1),
+                      "Fee starts 1 in. higher"                   = list(bottom = H_low + 1),
+                      "All heights 1.7 in. lower (dimensions.com scale)" = list(bottom = H_low + 1.7),
                       "Escalade ESV anchor 47.8 in. (GMC Yukon)"  = list(top = 47.8))
 
 hood_sens <- imap(hood_variants, \(args, name) tibble(
@@ -539,6 +571,36 @@ map(2019:2025, \(yr) {
 * **Vans are probably overstated.** Every full-size van gets the Chevrolet Express's 47.9 in. The Transit, ProMaster and Sprinter weren't measured, and their short, sloped noses probably sit lower. The commercial-exempt rows remove them.
 * The estimate is static and the commercial exemption is a proxy, as in Part 2.
 
+# 11. Out-of-state registration and the totals
+
+Every result above taxes the `r format(round(stock), big.mark = ",")` vehicles in the taxable fleet (section 2). The table below holds each tax's average per vehicle fixed and changes only how many vehicles pay. In $ millions:
+
+* **DC registrations today**: the central estimate (with `enforce` = 0).
+* **Plus every household vehicle on out-of-state plates**: the ceiling if enforcement moved all of them onto DC plates, at the ANC 1C rate (`oos_share`).
+* **Residential registrations only**: a floor, as if vehicles registered to businesses and other non-residential addresses were exempt or had left.
+* **Household vehicles in the ACS**: the count earlier versions of this note used.
+
+```{r fleet_scenarios}
+per_vehicle <- c(value_M         = sum(dmv$still_here * dmv$tax) / 1e6,
+                 length_M        = res$rev_fleet_M[1],
+                 length_capped_M = res$rev_fleet_M[2],
+                 hood_M          = hres$rev_fleet_M[1],
+                 hood_capped_M   = hres$rev_fleet_M[2]) / stock
+
+fleets <- c("DC registrations today"                        = stock_now,
+            "Plus every household vehicle on out-of-state plates" = stock_now + oos_vehicles,
+            "Residential registrations only"                = dmv_residential * kept_share,
+            "Household vehicles in the ACS"                 = acs_vehicles)
+
+tibble(fleet = names(fleets), vehicles = round(fleets)) |>
+  bind_cols(as_tibble(round(outer(fleets, per_vehicle), 1)))
+```
+
+Two cautions:
+
+* **The out-of-state share is uncertain.** The ANC 1C rate (`r round(100 * oos_share)`%) is one neighborhood. The same comparison citywide (`r format(dmv_residential, big.mark = ",")` residential registrations against `r format(acs_vehicles, big.mark = ",")` household vehicles) gives `r round(100 * (1 - dmv_residential / acs_vehicles))`%, but that overstates it to the extent household vehicles are registered to a business or a non-residential address.
+* **New DC-only taxes add to the pull toward out-of-state plates**, and the pull is strongest for the vehicles that would pay the most. If owners of a tenth of the tax base moved their vehicles onto other states' plates, revenue would fall by at least a tenth, and by more if they are the owners of the costliest, longest or tallest vehicles.
+
 # Checks
 
 ```{r checks}
@@ -561,13 +623,15 @@ r |> group_by(verified) |>
   summarise(pct_of_uncapped_revenue = round(100 * sum(n * share * fee) / sum(r$n * r$share * r$fee), 1))
 
 
-# 5. Share of the 2025 hood revenue by where the height comes from
+# 4. Share of the 2025 hood revenue by where the height comes from
 hr |> group_by(source) |>
   summarise(pct_of_vehicles         = round(100 * sum(n) / sum(hr$n), 1),
             pct_of_uncapped_revenue = round(100 * sum(n * fee) / sum(hr$n * hr$fee), 1))
 ```
 
 # Sources
+
+* Fleet: ACS 2020-24, table B25046 (vehicles available to households); DC DMV registered vehicles, [FY2025 performance report](https://oca.dc.gov/sites/default/files/dc/sites/oca/FY25%20PAR%20-%20DMV.pdf) (300,000; [other DMV pages](https://beta.dc.gov/services/vehicle-registration) say 310,000); residential registrations and the ANC 1C count, DMV FOIA response, January 2026.
 
 * Prices: [KBB average transaction prices, October 2026](https://www.coxautoinc.com/wp-content/uploads/2026/11/October-2026-Kelley-Blue-Book-Average-Transaction-Price-tables.pdf); [KBB depreciation rates](https://www.kbb.com/car-depreciation).
 * Anchor lengths: [2025 Camry, 193.5 in. (KBB)](https://www.kbb.com/toyota/camry/2025/specs); [2025 Escalade ESV, 227 in. (KBB)](https://www.kbb.com/cadillac/escalade-esv/2025/specs).

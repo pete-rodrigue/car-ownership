@@ -366,7 +366,13 @@ options(scipen = 999, width = 110, pillar.sigfig = 6)
 dmv_file  &lt;- &quot;dmv_data_cleaned.csv&quot;  # cleaned DMV new-registration data
 len_file  &lt;- &quot;vehicle_lengths.csv&quot;   # lengths of nameplates longer than a Camry (built for this note)
 hood_file &lt;- &quot;hood_heights_v4.xlsx&quot;  # hood leading-edge heights, 195 nameplates (carsized.com photos)
-stock     &lt;- 279262                  # DC household vehicles, ACS 2020-24 (B25046)
+
+# ---- Fleet: which vehicles a DC tax reaches (edit these, then re-knit) ------
+dmv_registered  &lt;- 300000           # vehicles registered with DC DMV, all owners and types (DMV FY2025 report)
+dmv_residential &lt;- 118907           # of those, registered at residential addresses, Jan 2026 (DMV FOIA)
+acs_vehicles    &lt;- 279262           # vehicles DC households keep at home, wherever registered (ACS 2020-24, B25046)
+oos_share       &lt;- 1 - 4500 / 6481  # share of household vehicles on out-of-state plates (ANC 1C: DMV FOIA vs. ACS)
+enforce         &lt;- 0                # share of those moved onto DC plates (0 = today; 1 = all of them)
 
 # ---- Part 1: value tax settings -------------------------------------------
 rate      &lt;- 0.05                    # value tax rate
@@ -416,24 +422,76 @@ atp_year &lt;- c(`2015` = 33500, `2016` = 34500, `2017` = 35500, `2018` = 36500,
               `2020` = 40000, `2021` = 45000, `2022` = 48500, `2023` = 48500, `2024` = 48500,
               `2025` = 49800, `2026` = 51109)</code></pre>
 </div>
-<div id="which-cars-are-still-registered-in-dc" class="section level2">
-<h2>2. Which cars are still registered in DC</h2>
-<p>The DMV file counts cars <em>first registered</em> in DC each year.
-Assuming a constant share stays registered each year, that share is 1 −
-(2025 registrations ÷ total cars).</p>
-<pre class="r"><code>dmv &lt;- read_csv(dmv_file, show_col_types = FALSE) |&gt;
+<div id="which-vehicles-a-dc-tax-reaches" class="section level2">
+<h2>2. Which vehicles a DC tax reaches</h2>
+<p>An annual tax collected by the DMV reaches only vehicles registered
+in DC. That is a different group from the vehicles DC households
+own:</p>
+<ul>
+<li><strong>Out-of-state plates.</strong> Many residents keep vehicles
+registered in Maryland, Virginia or elsewhere, some legally with a
+reciprocity permit (students, military, congressional staff, diplomats).
+In ANC 1C the DMV lists about 4,500 registered vehicles, while the ACS
+counts 6,481 kept by households, so about 31% are on other states’
+plates. These pay nothing unless enforcement moves them onto DC plates
+(<code>enforce</code>).</li>
+<li><strong>Non-residential registrations.</strong> DC registrations
+also include vehicles registered to businesses and other non-residential
+addresses, which the ACS doesn’t count. The DMV reports about 300,000
+registered vehicles, but only 118,907 at residential addresses.</li>
+</ul>
+<p>The first-registration counts used throughout include non-residential
+registrations (they include school buses and heavy trucks, for example),
+so the fleet they feed has to as well. The taxable fleet is therefore
+the DMV’s registered total, cut to the Class I–III vehicles from the
+brands kept here, plus any out-of-state household vehicles that
+enforcement brings in.</p>
+<p>The DMV file counts vehicles <em>first registered</em> in DC each
+year. Assuming a constant share stays registered each year, that share
+is 1 − (2025 registrations ÷ registered fleet).</p>
+<pre class="r"><code>all_regs &lt;- read_csv(dmv_file, show_col_types = FALSE)
+dmv &lt;- all_regs |&gt;
   filter(weight_class %in% c(&quot;Class I&quot;, &quot;Class II&quot;, &quot;Class III&quot;),
          make_clean %in% names(price_new))
 
+# Share of registrations that are Class I-III vehicles from the brands kept (2019-25 first registrations)
+kept_share   &lt;- sum(dmv$n[dmv$year &gt;= 2019]) / sum(all_regs$n[all_regs$year &gt;= 2019])
+stock_now    &lt;- dmv_registered * kept_share           # taxable today
+oos_vehicles &lt;- acs_vehicles * oos_share              # household vehicles on out-of-state plates
+stock        &lt;- stock_now + enforce * oos_vehicles    # taxable fleet used in every part below
+
 inflow_2025 &lt;- sum(dmv$n[dmv$year == 2025])
-retention   &lt;- 1 - inflow_2025 / stock
+retention   &lt;- 1 - inflow_2025 / stock_now
 
-dmv &lt;- dmv |&gt; mutate(still_here = n * retention^(2025 - year))
+# Vehicles brought in by enforcement are assumed to look like the DC-registered fleet
+dmv &lt;- dmv |&gt; mutate(still_here = n * retention^(2025 - year) * stock / stock_now)
 
-c(inflow_2025 = inflow_2025, retention = round(retention, 3),
-  modeled_stock = round(sum(dmv$still_here)))</code></pre>
-<pre><code>##   inflow_2025     retention modeled_stock 
-##     53406.000         0.809    282322.000</code></pre>
+tibble(fleet    = c(&quot;Kept by DC households, wherever registered (ACS)&quot;,
+                    &quot;Registered with DC DMV, all owners and types&quot;,
+                    &quot;  Class I-III, brands kept here: taxable today&quot;,
+                    &quot;  Registered at residential addresses (DMV FOIA)&quot;,
+                    &quot;Household vehicles on out-of-state plates (ANC 1C rate)&quot;,
+                    &quot;Taxable fleet used below&quot;),
+       vehicles = round(c(acs_vehicles, dmv_registered, stock_now, dmv_residential, oos_vehicles, stock)))</code></pre>
+<pre><code>## # A tibble: 6 × 2
+##   fleet                                                     vehicles
+##   &lt;chr&gt;                                                        &lt;dbl&gt;
+## 1 &quot;Kept by DC households, wherever registered (ACS)&quot;          279262
+## 2 &quot;Registered with DC DMV, all owners and types&quot;              300000
+## 3 &quot;  Class I-III, brands kept here: taxable today&quot;            288880
+## 4 &quot;  Registered at residential addresses (DMV FOIA)&quot;          118907
+## 5 &quot;Household vehicles on out-of-state plates (ANC 1C rate)&quot;    85360
+## 6 &quot;Taxable fleet used below&quot;                                  288880</code></pre>
+<pre class="r"><code>c(kept_share = round(kept_share, 3), inflow_2025 = inflow_2025, retention = round(retention, 3),
+  avg_years_registered = round(stock_now / inflow_2025, 1), modeled_stock = round(sum(dmv$still_here)))</code></pre>
+<pre><code>##           kept_share          inflow_2025            retention avg_years_registered        modeled_stock 
+##                0.963            53406.000                0.815                5.400           289969.000</code></pre>
+<p>The inflow fits the registered total better than the residential
+count. Against the registered total, a vehicle stays registered about
+5.4 years on average. If the taxable fleet were only the 118,907
+residential registrations, the 2025 first registrations alone would
+replace 47% of it in a year, an average registration of about 2.1 years.
+Section 11 shows the totals under each fleet count.</p>
 </div>
 <div id="value-today" class="section level2">
 <h2>3. Value today</h2>
@@ -477,7 +535,7 @@ round(total, 1)</code></pre>
 <pre><code>## # A tibble: 1 × 4
 ##      cars cars_taxed revenue_M avg_tax_taxed
 ##     &lt;dbl&gt;      &lt;dbl&gt;     &lt;dbl&gt;         &lt;dbl&gt;
-## 1 282322.    26981.6      22.1         818.4</code></pre>
+## 1 289969.    27215.3      22.2           817</code></pre>
 <pre class="r"><code>dmv |&gt;
   mutate(age_group = cut(age, c(-1, 0, 2, 5, 9, Inf),
                          labels = c(&quot;New&quot;, &quot;1-2&quot;, &quot;3-5&quot;, &quot;6-9&quot;, &quot;10+&quot;))) |&gt;
@@ -488,11 +546,11 @@ round(total, 1)</code></pre>
 <pre><code>## # A tibble: 5 × 4
 ##   age_group   cars cars_taxed revenue_M
 ##   &lt;fct&gt;      &lt;dbl&gt;      &lt;dbl&gt;     &lt;dbl&gt;
-## 1 New        15288       9138       9.7
-## 2 1-2        30305      10788       8.5
-## 3 3-5        48548       5978       3.5
-## 4 6-9        71664       1012       0.5
-## 5 10+       116518         66       0</code></pre>
+## 1 New        15302       9146       9.7
+## 2 1-2        30575      10879       8.6
+## 3 3-5        49468       6081       3.5
+## 4 6-9        73905       1040       0.5
+## 5 10+       120719         69       0</code></pre>
 </div>
 <div id="sensitivity" class="section level2">
 <h2>Sensitivity</h2>
@@ -509,10 +567,10 @@ tibble(variant   = c(&quot;Brand averages only (no spread)&quot;, &quot;Central 
 <pre><code>## # A tibble: 4 × 2
 ##   variant                            revenue_M
 ##   &lt;chr&gt;                                  &lt;dbl&gt;
-## 1 Brand averages only (no spread)         15.4
-## 2 Central (spread 0.3)                    22.1
-## 3 Wider spread (0.4)                      26.8
-## 4 Today&#39;s prices for all model years      29.2</code></pre>
+## 1 Brand averages only (no spread)         15.5
+## 2 Central (spread 0.3)                    22.2
+## 3 Wider spread (0.4)                      27  
+## 4 Today&#39;s prices for all model years      29.5</code></pre>
 </div>
 </div>
 <div id="part-2.-an-annual-length-surcharge" class="section level1">
@@ -606,8 +664,8 @@ fee_rows &lt;- function(data = new25, cap = Inf, body = &quot;len&quot;, ext = e
 <div id="revenue" class="section level2">
 <h2>7. Revenue</h2>
 <p>Revenue scales the average surcharge among 2025 new registrations up
-to all 279,262 vehicles, assuming the fleet’s length mix matches the
-2025 registrants’.</p>
+to the 288,880 vehicles in the taxable fleet (section 2), assuming the
+fleet’s length mix matches the 2025 registrants’.</p>
 <p><strong>Commercial vehicles.</strong> The DMV file doesn’t say which
 vehicles carry commercial plates, so the “commercial exempt” rows exempt
 commercial-type vehicles instead: the types listed in
@@ -635,16 +693,16 @@ res |&gt; mutate(across(where(is.numeric), \(x) round(x, 2)))</code></pre>
 <pre><code>## # A tibble: 4 × 6
 ##   version                     pct_charged fee_if_charged fee_per_car rev_2025_cars_M rev_fleet_M
 ##   &lt;chr&gt;                             &lt;dbl&gt;          &lt;dbl&gt;       &lt;dbl&gt;           &lt;dbl&gt;       &lt;dbl&gt;
-## 1 All vehicles, uncapped            20.73          88.77       18.4             0.98        5.14
-## 2 All vehicles, capped              20.73          84.13       17.44            0.93        4.87
-## 3 Commercial exempt, uncapped       19.8           77.4        15.32            0.82        4.28
-## 4 Commercial exempt, capped         19.8           75.18       14.88            0.79        4.16</code></pre>
+## 1 All vehicles, uncapped            20.73          88.77       18.4             0.98        5.32
+## 2 All vehicles, capped              20.73          84.13       17.44            0.93        5.04
+## 3 Commercial exempt, uncapped       19.8           77.4        15.32            0.82        4.43
+## 4 Commercial exempt, capped         19.8           75.18       14.88            0.79        4.3</code></pre>
 <p>About 21% of vehicles are long enough to pay anything. The median
 payer owes $53 a year (75th percentile $98, 90th percentile $274), and
 the average payer $89. Fleet-wide, the surcharge raises about
-<strong>$5.1 million a year uncapped, or $4.9 million with a $300
-cap</strong>. Exempting commercial-type vehicles brings that to $4.3
-million uncapped, or $4.2 million capped.</p>
+<strong>$5.3 million a year uncapped, or $5 million with a $300
+cap</strong>. Exempting commercial-type vehicles brings that to $4.4
+million uncapped, or $4.3 million capped.</p>
 </div>
 <div id="who-pays" class="section level2">
 <h2>Who pays</h2>
@@ -667,14 +725,14 @@ left_join(by_segment(fee_rows()),
 <pre><code>## # A tibble: 8 × 6
 ##   segment             cars_charged revenue_M revenue_capped_M avg_fee_uncapped commercial
 ##   &lt;chr&gt;                      &lt;dbl&gt;     &lt;dbl&gt;            &lt;dbl&gt;            &lt;dbl&gt; &lt;lgl&gt;     
-## 1 Full-size pickup            3958      1.28             1.16              324 FALSE     
-## 2 Other SUV/crossover        24482      0.98             0.98               40 FALSE     
-## 3 Van                         2479      0.8              0.68              323 TRUE      
-## 4 Full-size SUV               3263      0.53             0.53              161 FALSE     
-## 5 Minivan                     5914      0.51             0.51               86 FALSE     
-## 6 Car                        14145      0.51             0.51               36 FALSE     
-## 7 Midsize pickup              3527      0.47             0.47              133 FALSE     
-## 8 Heavy-duty pickup            125      0.06             0.04              473 TRUE</code></pre>
+## 1 Full-size pickup            4095      1.33             1.2               324 FALSE     
+## 2 Other SUV/crossover        25326      1.02             1.02               40 FALSE     
+## 3 Van                         2564      0.83             0.7               323 TRUE      
+## 4 Full-size SUV               3375      0.54             0.54              161 FALSE     
+## 5 Minivan                     6118      0.53             0.53               86 FALSE     
+## 6 Car                        14632      0.52             0.52               36 FALSE     
+## 7 Midsize pickup              3648      0.49             0.49              133 FALSE     
+## 8 Heavy-duty pickup            130      0.06             0.04              473 TRUE</code></pre>
 </div>
 <div id="sensitivity-1" class="section level2">
 <h2>Sensitivity</h2>
@@ -700,11 +758,11 @@ imap(variants, \(args, name) tibble(
 <pre><code>## # A tibble: 5 × 5
 ##   variant                         uncapped_M capped_M uncapped_comm_exempt_M capped_comm_exempt_M
 ##   &lt;chr&gt;                                &lt;dbl&gt;    &lt;dbl&gt;                  &lt;dbl&gt;                &lt;dbl&gt;
-## 1 Central                               5.14     4.87                   4.28                 4.16
-## 2 Pickups and vans: shortest body       4.46     4.39                   3.82                 3.79
-## 3 Pickups and vans: longest body        6.08     5.09                   4.74                 4.32
-## 4 No extended-length SUVs               5.05     4.78                   4.19                 4.06
-## 5 Two-thirds extended-length SUVs       5.23     4.96                   4.37                 4.25</code></pre>
+## 1 Central                               5.32     5.04                   4.43                 4.3 
+## 2 Pickups and vans: shortest body       4.61     4.54                   3.95                 3.92
+## 3 Pickups and vans: longest body        6.29     5.26                   4.9                  4.47
+## 4 No extended-length SUVs               5.22     4.94                   4.33                 4.2 
+## 5 Two-thirds extended-length SUVs       5.41     5.13                   4.52                 4.4</code></pre>
 </div>
 <div id="is-2025-a-typical-year" class="section level2">
 <h2>Is 2025 a typical year?</h2>
@@ -829,12 +887,13 @@ longer than a Camry.</li>
 <code>H_hd_pickup</code>.</li>
 <li><strong>No hood</strong>: motorcycles pay nothing.</li>
 </ul>
-<p>A measurement error shared by every photo cancels out, because the
-fee depends only on how much higher a hood is than the Camry’s. Errors
-that differ from model to model do not: across 32 models measured both
-ways, carsized.com photos typically read 1.7 in. higher than
-dimensions.com drawings, with a standard deviation of about 1.4 in.
-around that gap.</p>
+<p>Because the fee starts at a fixed height (35 in.) rather than at a
+measured vehicle, a measurement error shared by every photo does not
+cancel out. Across 32 models measured both ways, carsized.com photos
+typically read 1.7 in. higher than dimensions.com drawings, with a
+standard deviation of about 1.4 in. around that gap. The sensitivity
+table shows the result if every height, including the Escalade’s, were
+1.7 in. lower.</p>
 <pre class="r"><code>read_norm &lt;- function(f) read_csv(f, show_col_types = FALSE) |&gt; mutate(across(everything(), norm))
 
 harm_extra &lt;- read_norm(&quot;nameplate_harmonization_extra.csv&quot;)
@@ -938,17 +997,17 @@ hres |&gt; mutate(across(where(is.numeric), \(x) round(x, 2)))</code></pre>
 <pre><code>## # A tibble: 4 × 6
 ##   version                     pct_charged fee_if_charged fee_per_car rev_2025_cars_M rev_fleet_M
 ##   &lt;chr&gt;                             &lt;dbl&gt;          &lt;dbl&gt;       &lt;dbl&gt;           &lt;dbl&gt;       &lt;dbl&gt;
-## 1 All vehicles, uncapped            56.46         138.63       78.26            4.18       21.86
-## 2 All vehicles, capped              56.46         130.98       73.95            3.95       20.65
-## 3 Commercial exempt, uncapped       55.52         134.28       74.56            3.98       20.82
-## 4 Commercial exempt, capped         55.52         128.15       71.15            3.8        19.87</code></pre>
+## 1 All vehicles, uncapped            56.46         138.63       78.26            4.18       22.61
+## 2 All vehicles, capped              56.46         130.98       73.95            3.95       21.36
+## 3 Commercial exempt, uncapped       55.52         134.28       74.56            3.98       21.54
+## 4 Commercial exempt, capped         55.52         128.15       71.15            3.8        20.55</code></pre>
 <pre class="r"><code>hood_q &lt;- payer_q(hood_rows())</code></pre>
-<p>About 56% of vehicles have a hood higher than 35 and pay something.
-The median payer owes $99 a year (75th percentile $177, 90th percentile
-$279), and the average payer $139. Fleet-wide, the surcharge raises
-about <strong>$21.9 million a year uncapped, or $20.7 million with a
-$300 cap</strong>. Exempting commercial-type vehicles brings that to
-$20.8 million uncapped, or $19.9 million capped.</p>
+<p>About 56% of vehicles have a hood higher than 35 in. and pay
+something. The median payer owes $99 a year (75th percentile $177, 90th
+percentile $279), and the average payer $139. Fleet-wide, the surcharge
+raises about <strong>$22.6 million a year uncapped, or $21.4 million
+with a $300 cap</strong>. Exempting commercial-type vehicles brings that
+to $21.5 million uncapped, or $20.6 million capped.</p>
 </div>
 <div id="who-pays-1" class="section level2">
 <h2>Who pays</h2>
@@ -970,21 +1029,20 @@ left_join(by_segment(hr),
 <pre><code>## # A tibble: 9 × 7
 ##   segment             cars_charged revenue_M revenue_capped_M pct_measured avg_fee_uncapped commercial
 ##   &lt;chr&gt;                      &lt;dbl&gt;     &lt;dbl&gt;            &lt;dbl&gt;        &lt;dbl&gt;            &lt;dbl&gt; &lt;lgl&gt;     
-## 1 Other SUV/crossover       130020     16.24            15.99           92              125 FALSE     
-## 2 Full-size pickup            3958      1.65             1.19           89              417 FALSE     
-## 3 Full-size SUV               3263      1.15             0.97           84              352 FALSE     
-## 4 Midsize pickup              3734      0.98             0.92           85              261 FALSE     
-## 5 Van                         2479      0.96             0.74           15              387 TRUE      
-## 6 Minivan                     6604      0.59             0.59           88               89 FALSE     
-## 7 Car                         1679      0.11             0.11           88               66 FALSE     
-## 8 Unclassified                5799      0.1              0.1             0               18 FALSE     
-## 9 Heavy-duty pickup            125      0.08             0.04            0              600 TRUE</code></pre>
+## 1 Other SUV/crossover       134498     16.8             16.54           92              125 FALSE     
+## 2 Full-size pickup            4095      1.71             1.23           89              417 FALSE     
+## 3 Full-size SUV               3375      1.19             1.01           84              352 FALSE     
+## 4 Midsize pickup              3862      1.01             0.95           85              261 FALSE     
+## 5 Van                         2564      0.99             0.77           15              387 TRUE      
+## 6 Minivan                     6832      0.61             0.61           88               89 FALSE     
+## 7 Car                         1736      0.11             0.11           88               66 FALSE     
+## 8 Unclassified                5999      0.11             0.11            0               18 FALSE     
+## 9 Heavy-duty pickup            130      0.08             0.04            0              600 TRUE</code></pre>
 </div>
 <div id="sensitivity-2" class="section level2">
 <h2>Sensitivity</h2>
-<p>Fleet revenue in $ millions. The two anchor heights matter most: each
-is a single photo measurement, and moving the Camry’s by an inch shifts
-the fee of nearly every vehicle by about $30.</p>
+<p>Fleet revenue in $ millions. The starting height matters most: moving
+it by an inch shifts the fee of every vehicle above it by about $30.</p>
 <pre class="r"><code>run_hood &lt;- function(...) {
   r &lt;- hood_rows(...)
   round(sum(r$n * r$fee) / sum(new25$n) * stock / 1e6, 2)
@@ -993,8 +1051,9 @@ the fee of nearly every vehicle by about $30.</p>
 hood_variants &lt;- list(&quot;Central&quot;                                   = list(),
                       &quot;Unmeasured vehicles pay $0&quot;                = list(unmeasured = &quot;zero&quot;),
                       &quot;Unmeasured vehicles pay the average&quot;       = list(unmeasured = &quot;average&quot;),
-                      &quot;Lower anchor 1 in. lower&quot;                  = list(bottom = H_low - 1),
-                      &quot;Higher anchor 1 in. higher&quot;                = list(bottom = H_low + 1),
+                      &quot;Fee starts 1 in. lower&quot;                    = list(bottom = H_low - 1),
+                      &quot;Fee starts 1 in. higher&quot;                   = list(bottom = H_low + 1),
+                      &quot;All heights 1.7 in. lower (dimensions.com scale)&quot; = list(bottom = H_low + 1.7),
                       &quot;Escalade ESV anchor 47.8 in. (GMC Yukon)&quot;  = list(top = 47.8))
 
 hood_sens &lt;- imap(hood_variants, \(args, name) tibble(
@@ -1005,15 +1064,16 @@ hood_sens &lt;- imap(hood_variants, \(args, name) tibble(
   capped_comm_exempt_M   = do.call(run_hood, c(args, list(cap = hood_fee_cap, exempt = commercial_types))))) |&gt;
   list_rbind()
 hood_sens</code></pre>
-<pre><code>## # A tibble: 6 × 5
-##   variant                                  uncapped_M capped_M uncapped_comm_exempt_M capped_comm_exempt_M
-##   &lt;chr&gt;                                         &lt;dbl&gt;    &lt;dbl&gt;                  &lt;dbl&gt;                &lt;dbl&gt;
-## 1 Central                                       21.86    20.65                  20.82                19.87
-## 2 Unmeasured vehicles pay $0                    19.05    18.15                  18.9                 18.04
-## 3 Unmeasured vehicles pay the average           21.82    20.79                  21.48                20.5 
-## 4 Lower anchor 1 in. lower                      24.32    23.23                  23.31                22.45
-## 5 Higher anchor 1 in. higher                    19.18    17.84                  18.12                17.06
-## 6 Escalade ESV anchor 47.8 in. (GMC Yukon)      17.07    16.89                  16.27                16.11</code></pre>
+<pre><code>## # A tibble: 7 × 5
+##   variant                                      uncapped_M capped_M uncapped_comm_exempt_M capped_comm_exempt_M
+##   &lt;chr&gt;                                             &lt;dbl&gt;    &lt;dbl&gt;                  &lt;dbl&gt;                &lt;dbl&gt;
+## 1 Central                                           22.61    21.36                  21.54                20.55
+## 2 Unmeasured vehicles pay $0                        19.71    18.78                  19.55                18.66
+## 3 Unmeasured vehicles pay the average               22.57    21.51                  22.22                21.21
+## 4 Fee starts 1 in. lower                            25.16    24.03                  24.11                23.22
+## 5 Fee starts 1 in. higher                           19.84    18.46                  18.74                17.65
+## 6 All heights 1.7 in. lower (dimensions.com s…      17.89    16.39                  16.77                15.58
+## 7 Escalade ESV anchor 47.8 in. (GMC Yukon)          17.66    17.48                  16.83                16.67</code></pre>
 </div>
 <div id="is-2025-a-typical-year-1" class="section level2">
 <h2>Is 2025 a typical year?</h2>
@@ -1056,7 +1116,7 @@ sensitivity row using the Yukon’s height). The Jeep Wrangler uses the
 the two sources.</li>
 <li><strong>13% of 2025 vehicles have imputed or assumed
 heights.</strong> Charging them nothing would cut uncapped revenue by
-$2.8 million; charging them the measured vehicles’ average fee instead
+$2.9 million; charging them the measured vehicles’ average fee instead
 of imputing changes it by $0 million.</li>
 <li><strong>Vans are probably overstated.</strong> Every full-size van
 gets the Chevrolet Express’s 47.9 in. The Transit, ProMaster and
@@ -1066,6 +1126,58 @@ lower. The commercial-exempt rows remove them.</li>
 in Part 2.</li>
 </ul>
 </div>
+</div>
+<div id="out-of-state-registration-and-the-totals" class="section level1">
+<h1>11. Out-of-state registration and the totals</h1>
+<p>Every result above taxes the 288,880 vehicles in the taxable fleet
+(section 2). The table below holds each tax’s average per vehicle fixed
+and changes only how many vehicles pay. In $ millions:</p>
+<ul>
+<li><strong>DC registrations today</strong>: the central estimate (with
+<code>enforce</code> = 0).</li>
+<li><strong>Plus every household vehicle on out-of-state
+plates</strong>: the ceiling if enforcement moved all of them onto DC
+plates, at the ANC 1C rate (<code>oos_share</code>).</li>
+<li><strong>Residential registrations only</strong>: a floor, as if
+vehicles registered to businesses and other non-residential addresses
+were exempt or had left.</li>
+<li><strong>Household vehicles in the ACS</strong>: the count earlier
+versions of this note used.</li>
+</ul>
+<pre class="r"><code>per_vehicle &lt;- c(value_M         = sum(dmv$still_here * dmv$tax) / 1e6,
+                 length_M        = res$rev_fleet_M[1],
+                 length_capped_M = res$rev_fleet_M[2],
+                 hood_M          = hres$rev_fleet_M[1],
+                 hood_capped_M   = hres$rev_fleet_M[2]) / stock
+
+fleets &lt;- c(&quot;DC registrations today&quot;                        = stock_now,
+            &quot;Plus every household vehicle on out-of-state plates&quot; = stock_now + oos_vehicles,
+            &quot;Residential registrations only&quot;                = dmv_residential * kept_share,
+            &quot;Household vehicles in the ACS&quot;                 = acs_vehicles)
+
+tibble(fleet = names(fleets), vehicles = round(fleets)) |&gt;
+  bind_cols(as_tibble(round(outer(fleets, per_vehicle), 1)))</code></pre>
+<pre><code>## # A tibble: 4 × 7
+##   fleet                                         vehicles value_M length_M length_capped_M hood_M hood_capped_M
+##   &lt;chr&gt;                                            &lt;dbl&gt;   &lt;dbl&gt;    &lt;dbl&gt;           &lt;dbl&gt;  &lt;dbl&gt;         &lt;dbl&gt;
+## 1 DC registrations today                          288880    22.2      5.3             5     22.6          21.4
+## 2 Plus every household vehicle on out-of-state…   374240    28.8      6.9             6.5   29.3          27.7
+## 3 Residential registrations only                  114500     8.8      2.1             2      9             8.5
+## 4 Household vehicles in the ACS                   279262    21.5      5.1             4.9   21.9          20.7</code></pre>
+<p>Two cautions:</p>
+<ul>
+<li><strong>The out-of-state share is uncertain.</strong> The ANC 1C
+rate (31%) is one neighborhood. The same comparison citywide (118,907
+residential registrations against 279,262 household vehicles) gives 57%,
+but that overstates it to the extent household vehicles are registered
+to a business or a non-residential address.</li>
+<li><strong>New DC-only taxes add to the pull toward out-of-state
+plates</strong>, and the pull is strongest for the vehicles that would
+pay the most. If owners of a tenth of the tax base moved their vehicles
+onto other states’ plates, revenue would fall by at least a tenth, and
+by more if they are the owners of the costliest, longest or tallest
+vehicles.</li>
+</ul>
 </div>
 <div id="checks" class="section level1">
 <h1>Checks</h1>
@@ -1083,7 +1195,7 @@ c(bikes_still_registered = round(sum(dmv$still_here[bikes])),
   tax_M = round(sum(dmv$still_here[bikes] * dmv$tax[bikes]) / 1e6, 2),
   pct_of_revenue = round(100 * sum(dmv$still_here[bikes] * dmv$tax[bikes]) / sum(dmv$still_here * dmv$tax), 1))</code></pre>
 <pre><code>## bikes_still_registered                  tax_M         pct_of_revenue 
-##                 913.00                   0.05                   0.20</code></pre>
+##                 940.00                   0.05                   0.20</code></pre>
 <pre class="r"><code># 3. Share of the 2025 length revenue that rests on lengths checked against
 #    manufacturer, dealer or KBB spec pages (&quot;web&quot;) vs. the autoevolution dataset or approximations
 r &lt;- fee_rows()
@@ -1095,7 +1207,7 @@ r |&gt; group_by(verified) |&gt;
 ## 1 approx                           19.9
 ## 2 autoevolution                    19  
 ## 3 web                              61.1</code></pre>
-<pre class="r"><code># 5. Share of the 2025 hood revenue by where the height comes from
+<pre class="r"><code># 4. Share of the 2025 hood revenue by where the height comes from
 hr |&gt; group_by(source) |&gt;
   summarise(pct_of_vehicles         = round(100 * sum(n) / sum(hr$n), 1),
             pct_of_uncapped_revenue = round(100 * sum(n * fee) / sum(hr$n * hr$fee), 1))</code></pre>
@@ -1111,13 +1223,18 @@ hr |&gt; group_by(source) |&gt;
 <div id="sources" class="section level1">
 <h1>Sources</h1>
 <ul>
-<li>Prices: <a href="https://www.coxautoinc.com/wp-content/uploads/2026/11/October-2026-Kelley-Blue-Book-Average-Transaction-Price-tables.pdf">KBB
+<li><p>Fleet: ACS 2020-24, table B25046 (vehicles available to
+households); DC DMV registered vehicles, <a href="https://oca.dc.gov/sites/default/files/dc/sites/oca/FY25%20PAR%20-%20DMV.pdf">FY2025
+performance report</a> (300,000; <a href="https://beta.dc.gov/services/vehicle-registration">other DMV
+pages</a> say 310,000); residential registrations and the ANC 1C count,
+DMV FOIA response, January 2026.</p></li>
+<li><p>Prices: <a href="https://www.coxautoinc.com/wp-content/uploads/2026/11/October-2026-Kelley-Blue-Book-Average-Transaction-Price-tables.pdf">KBB
 average transaction prices, October 2026</a>; <a href="https://www.kbb.com/car-depreciation">KBB depreciation
-rates</a>.</li>
-<li>Anchor lengths: <a href="https://www.kbb.com/toyota/camry/2025/specs">2025 Camry, 193.5 in.
+rates</a>.</p></li>
+<li><p>Anchor lengths: <a href="https://www.kbb.com/toyota/camry/2025/specs">2025 Camry, 193.5 in.
 (KBB)</a>; <a href="https://www.kbb.com/cadillac/escalade-esv/2025/specs">2025
-Escalade ESV, 227 in. (KBB)</a>.</li>
-<li>Main pickups and vans: <a href="https://media.ford.com/content/dam/fordmedia/North%20America/US/product/2024/f150/2024%20Ford%20F-150%20Tech%20Specs.pdf">Ford
+Escalade ESV, 227 in. (KBB)</a>.</p></li>
+<li><p>Main pickups and vans: <a href="https://media.ford.com/content/dam/fordmedia/North%20America/US/product/2024/f150/2024%20Ford%20F-150%20Tech%20Specs.pdf">Ford
 F-150 spec sheet</a>; <a href="https://www.fromtheroad.ford.com/content/dam/fordmediasite/us/en/library/2025/specs/2025%20Ford%20Transit%20Technical%20Specifications.pdf">Ford
 Transit spec sheet</a>; <a href="https://chevrolet.com/commercial/express/vans">Chevrolet
 Express</a>; <a href="https://www.kbb.com/ram/promaster/2020/specs/">Ram
@@ -1125,21 +1242,21 @@ ProMaster (KBB)</a>; <a href="https://gmauthority.com/blog/2026/10/2027-chevy-si
 (GM Authority)</a>; <a href="https://www.glendaledodgecalifornia.com/research-ram-1500-cabs-boxes.html">Ram
 1500</a>; <a href="https://pickuptrucktalk.com/2021/10/is-the-2022-toyota-tundra-smaller-a-spec-by-spec-comparison/">Tundra</a>;
 <a href="https://www.mercedesbenzofwarwick.com/2024-mercedes-benz-sprinter-dimensions/">Sprinter</a>;
-<a href="https://vandimensions.com/database/ford/e-series-2008">E-Series</a>.</li>
-<li>Large SUVs and minivans: <a href="https://www.automotive-fleet.com/news/chevrolet-refreshes-2021-tahoe-and-suburban-suvs">Tahoe
+<a href="https://vandimensions.com/database/ford/e-series-2008">E-Series</a>.</p></li>
+<li><p>Large SUVs and minivans: <a href="https://www.automotive-fleet.com/news/chevrolet-refreshes-2021-tahoe-and-suburban-suvs">Tahoe
 and Suburban</a>; <a href="https://gmauthority.com/blog/gm/cadillac/escalade/escalade-esv/">Escalade
 generations (GM Authority)</a>; <a href="https://www.truedelta.com/GMC-Yukon/specs-103-2021">Yukon</a>; <a href="https://www.fromtheroad.ford.com/content/dam/fordmediasite/us/en/library/2025/specs/2025-Ford-Expedition-Technical-Specs.pdf">Expedition
 spec sheet</a>; <a href="https://www.kbb.com/compare-cars/results/van-minivan">minivans
-(KBB)</a>.</li>
-<li>Other lengths: the <a href="https://github.com/ilyasozkurt/automobile-models-and-specs">autoevolution
+(KBB)</a>.</p></li>
+<li><p>Other lengths: the <a href="https://github.com/ilyasozkurt/automobile-models-and-specs">autoevolution
 specs dataset</a> where it has the U.S. model; the rest are marked
-“approx” in the CSV.</li>
-<li>Hood heights: measured from <a href="https://www.carsized.com">carsized.com</a> side photos (pages
+“approx” in the CSV.</p></li>
+<li><p>Hood heights: measured from <a href="https://www.carsized.com">carsized.com</a> side photos (pages
 listed in <code>hood_file</code>), cross-checked against <a href="https://www.dimensions.com">dimensions.com</a> drawings for 32
 models. Pedestrian risk: <a href="https://www.iihs.org/news/detail/vehicles-with-higher-more-vertical-front-ends-pose-greater-risk-to-pedestrians">IIHS
 (2023)</a>. Heavy-duty pickups: <a href="https://www.consumerreports.org/cars/car-safety/the-hidden-dangers-of-big-trucks-a9662450602/">Consumer
 Reports</a> measured the front edge of some heavy-duty hoods, such as
-the Ford F-250’s, at 55 in. or more.</li>
+the Ford F-250’s, at 55 in. or more.</p></li>
 </ul>
 </div>
 

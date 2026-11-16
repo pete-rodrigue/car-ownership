@@ -80,6 +80,9 @@ ggplot(to_plot, aes(x=var, y=val)) +
 
 
 
+
+
+
 # Household counts, weighted medians, and unweighted sample sizes
 wmed <- function(x, w) { o <- order(x); x[o][which(cumsum(w[o]) >= sum(w) / 2)[1]] }
 to_plot <- hh |> group_by(cars) |>
@@ -91,6 +94,23 @@ ggplot(to_plot, aes(x=cars, y=median_income)) +
   geom_text(aes(label=paste0("$", format(round(median_income), big.mark = ",", scientific = FALSE))), vjust = -.5) +
   theme_minimal() +
   labs(x="", y="Median household income", title = "Car-owning households' typical income is almost twice\nas high as car-free households' typical income")
+
+
+
+
+to_plot <- hh |> group_by(cars, bld) |>
+  summarise(households = sum(WGTP), median_income = wmed(inc, WGTP), sample_n = n())
+
+
+ggplot(to_plot %>% filter(bld %in% c("20+ units", "5-19 units")), aes(x=cars, y=median_income, group=bld)) +
+  geom_bar(stat='identity') +
+  geom_text(aes(label=paste0("$", format(round(median_income), big.mark = ",", scientific = FALSE))), vjust = -.5) +
+  theme_minimal() +
+  labs(x="", y="Median household income", 
+       title = "Car-owning households' typical income is almost twice\nas high as car-free households' typical income") +
+  facet_wrap(~bld)
+
+
 
 
 
